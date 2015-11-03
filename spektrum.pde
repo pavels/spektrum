@@ -239,7 +239,7 @@ public void gainDropdown(int theValue){
 }
 
 void setup() {
-  size(800, 600);  // Size should be the first statement
+  size(1200, 750);  // Size should be the first statement
   if (frame != null) {
     surface.setResizable(true);
   }  
