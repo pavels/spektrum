@@ -9,7 +9,7 @@ User interface part is written in [Processing](https://processing.org/)
 
 FM frequency band             |  433 MHz antenna measurement
 :-------------------------:|:-------------------------:
-![ FM frequency band ](https://raw.githubusercontent.com/pavels/spektrum/master/screenshots/screen1.png)  |  ![ 433MHz antenna measurement ](https://raw.githubusercontent.com/pavels/spektrum/master/screenshots/screen1.png)
+![ FM frequency band ](https://raw.githubusercontent.com/pavels/spektrum/master/screenshots/screen1.png)  |  ![ 433MHz antenna measurement ](https://raw.githubusercontent.com/pavels/spektrum/master/screenshots/screen2.png)
 
 Quick Start
 -----------
