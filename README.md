@@ -1,7 +1,7 @@
 spektrum
 ==========
 
-Spektrum is spectrum analyzer software for use with rtl-sdr.
+Spektrum is spectrum analyzer software for use with [rtl-sdr](http://sdr.osmocom.org/trac/wiki/rtl-sdr).
 
 Biggest advantage is that it can do sweeps across large frequency span.
 
