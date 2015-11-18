@@ -20,6 +20,8 @@ Connect and configure your rtl-sdr stick ( follow [this guide](http://rtlsdr.org
 
 Launch the software.
 
+**If you are running windows version and only thing you see is grey screen, you need to install Visual C++ Redistributable for Visual Studio 2012 - Get them from [http://www.microsoft.com/en-us/download/details.aspx?id=30679](http://www.microsoft.com/en-us/download/details.aspx?id=30679)**
+
 Usage
 -----
 
