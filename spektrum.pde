@@ -35,6 +35,11 @@ class DataPoint {
   public double yAvg = 0;
 }
 
+void MsgBox( String Msg, String Title ){
+  // Messages 
+  javax.swing.JOptionPane.showMessageDialog ( null, Msg, Title, javax.swing.JOptionPane.ERROR_MESSAGE  );
+}
+
 void setupControls() {
   int x, y;
   int width = 170;
@@ -245,7 +250,13 @@ void setup() {
   }  
 
   spektrumReader = new Rtlspektrum(0);
-  spektrumReader.openDevice();
+  int status = spektrumReader.openDevice();
+  
+  if(status < 0){
+    MsgBox("Can't open rtl-sdr device.","Spektrum");
+    exit();
+    return;
+  }
   
   gains = spektrumReader.getGains();
 
