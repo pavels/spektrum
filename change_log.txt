@@ -1,0 +1,11 @@
+Spectrum change log
+
+2017-08-28 by dnegrych
+
+User Interface Features added 
+
+1) Save and load the startFreg, stopFreq, binStep, scaleMin, scaleMax 
+   setting to a file so that settings carry over program sessions.
+2) Added a pause button to freeze the display so that a snapshot can 
+   be taken or the graph examined carefully. 
+3) Added a program Exit button.
