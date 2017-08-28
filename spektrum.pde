@@ -1,5 +1,6 @@
 import controlP5.*;
 import rtlspektrum.Rtlspektrum;
+import java.io.FileWriter;           // added by Dave N 24 Aug 2017
 
 Rtlspektrum spektrumReader;
 ControlP5 cp5;
@@ -34,6 +35,13 @@ class DataPoint {
   public double yMax = 0;
   public double yAvg = 0;
 }
+
+//========= added by Dave N
+Table table;
+String fileName = "config.csv";  // config file used to save and load program setting like frequency etc.
+boolean setupDone = false;
+boolean frozen = true;
+//=========================
 
 void MsgBox( String Msg, String Title ){
   // Messages 
@@ -117,14 +125,7 @@ void setupControls() {
     .getCaptionLabel().align(ControlP5.CENTER, ControlP5.CENTER).setText("Auto scale")
     ;
     
-  y += 30;  
-
-  cp5.addButton("toggleRelMode")
-    .setValue(0)
-    .setPosition(x, y)
-    .setSize(width, 20)
-    .getCaptionLabel().align(ControlP5.CENTER, ControlP5.CENTER).setText("Relative mode")
-    ;
+ 
     
   y += 40;
   
@@ -168,6 +169,32 @@ void setupControls() {
   gainDropdown.setValue(0);
   gainDropdown.getCaptionLabel().align(ControlP5.LEFT, ControlP5.TOP_OUTSIDE).setText(str(gains[0]));
  
+  y += 100;  
+
+  cp5.addButton("toggleRelMode")
+    .setValue(0)
+    .setPosition(x, y)
+    .setSize(width, 20)
+    .getCaptionLabel().align(ControlP5.CENTER, ControlP5.CENTER).setText("Relative mode")
+    ;
+  y += 30;  
+ 
+  cp5.addButton("freezeDisplay")
+    .setValue(0)
+    .setPosition(x, y)
+    .setSize(width, 20)
+    .getCaptionLabel().align(ControlP5.CENTER, ControlP5.CENTER).setText("Pause");
+    
+ y += 30;
+  
+  cp5.addButton("exitProgram")
+    .setValue(0)
+    .setPosition(x, y)
+    .setSize(width, 20)
+    .getCaptionLabel().align(ControlP5.CENTER, ControlP5.CENTER).setText("Exit");
+    
+ 
+    println("Reached end of setupControls.");
 }
 
 public void offsetToggle(int theValue) {
@@ -201,6 +228,11 @@ public void setRange(int theValue) {
   
   if(startFreq == 0 || stopFreq <= startFreq || binStep < 1) return;  
   
+  //============ added by Dave N 24 Aug 2017
+  saveConfig();
+  //============================
+
+  
   relMode = 0;
   spektrumReader.clearFrequencyRange();
   spektrumReader.setFrequencyRange(startFreq, stopFreq, binStep);
@@ -214,7 +246,10 @@ public void setScale(int theValue) {
     scaleMax = parseInt(cp5.get(Textfield.class,"scaleMaxText").getText());
   }catch(Exception e){
     return;
-  }  
+  }
+  //============ added by Dave N 24 Aug 2017
+  saveConfig();
+  //============================
 }
 
 public void autoScale(int theValue) {
@@ -249,6 +284,11 @@ void setup() {
     surface.setResizable(true);
   }  
 
+    //============ Function calls added by Dave N
+    makeConfig();  // create config file if it is not found.
+    loadConfig();
+    //============================
+    
   spektrumReader = new Rtlspektrum(0);
   int status = spektrumReader.openDevice();
   
@@ -262,6 +302,9 @@ void setup() {
 
   setupControls();
   relMode = 0;
+   setupDone = true;
+    
+    println("Reached end of setup.");
 }
 
 void stop() {
@@ -352,3 +395,86 @@ void draw() {
   
   
 } 
+
+void freezeDisplay() {
+//================ added by DJN 26 Aug 2017
+  if (frozen) {
+    frozen = false;
+    cp5.get(Button.class,"freezeDisplay").getCaptionLabel().setText("Pause");loop();
+    println("Display unfrozen.");
+  }
+  else {
+    frozen = true;
+    cp5.get(Button.class,"freezeDisplay").getCaptionLabel().setText("Run");loop();
+    noLoop();
+    println("Display frozen."); 
+  }
+}
+
+
+void exitProgram() {
+//================ added by DJN 24 Aug 2017
+  println("Exit program rtn."); 
+//  MsgBox("Exiting program.", "Exit");
+   if(setupDone)  exit();
+}
+
+void loadConfig() {
+//================ Function added by DJN 24 Aug 2017
+
+    table = loadTable(fileName, "header");
+    startFreq = table.getInt(0, "startFreq");
+    stopFreq = table.getInt(0, "stopFreq");
+    binStep = table.getInt(0, "binStep");
+    scaleMin = table.getInt(0, "scaleMin");
+    scaleMax = table.getInt(0, "scaleMax");
+    println("Config table " + fileName + " loaded."); 
+    println("startFreq = " + startFreq + " stopFreq = " + stopFreq + " binStep = " + binStep + " scaleMin = " + scaleMin + " scaleMax = ", scaleMax);
+  } 
+  
+void saveConfig() {
+//================ Function added by DJN 24 Aug 2017
+
+    table.setInt(0, "startFreq", startFreq);
+    table.setInt(0, "stopFreq",stopFreq);
+    table.setInt(0, "binStep", binStep);
+    table.setInt(0, "scaleMin", scaleMin);
+    table.setInt(0, "scaleMax", scaleMax);
+    saveTable(table, fileName, "csv");
+    println("startFreq = " + startFreq + " stopFreq = " + stopFreq + " binStep = " + binStep + " scaleMin = " + scaleMin + " scaleMax = ", scaleMax);
+    println("Config table " + fileName + " saved."); 
+  }
+ 
+void makeConfig() {
+//================ function added by DJN 24 Aug 2017
+
+  FileWriter fw= null;
+  File file =null;
+
+  try {
+            file=new File(fileName);
+            if(file.exists()) {
+              //println("File exists.");
+            }
+            else
+            {
+                // Recreate missing config file
+                file.createNewFile();
+                fw = new FileWriter(file);
+                // Write column headers to new config file
+                fw.write("startFreq,stopFreq,binStep,scaleMin,scaleMax\n");
+                // Write initial default values to new config file
+                fw.write(startFreq + "," + stopFreq + "," + binStep + "," + scaleMin + "," + scaleMax);
+                fw.flush();
+                fw.close();
+                println(fileName +  " created succesfully");
+              }
+            
+            } 
+      catch (IOException e) {
+            e.printStackTrace();
+        }
+   
+  println("Reached end of makeconfig");
+}
+  
