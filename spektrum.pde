@@ -41,6 +41,8 @@ Table table;
 String fileName = "config.csv";  // config file used to save and load program setting like frequency etc.
 boolean setupDone = false;
 boolean frozen = true;
+float minMaxTextX = 10;
+float minMaxTextY = 560;
 //=========================
 
 void MsgBox( String Msg, String Title ){
@@ -175,8 +177,7 @@ void setupControls() {
     .setValue(0)
     .setPosition(x, y)
     .setSize(width, 20)
-    .getCaptionLabel().align(ControlP5.CENTER, ControlP5.CENTER).setText("Relative mode")
-    ;
+    .getCaptionLabel().align(ControlP5.CENTER, ControlP5.CENTER).setText("Relative mode");
   y += 30;  
  
   cp5.addButton("freezeDisplay")
@@ -382,19 +383,18 @@ void draw() {
     
     lastPoint = point;
   }
-  
-  fill(#222324);
+fill(#222324);
   stroke(#D5921F);
-  rect(graphX() + graphWidth() - 250, graphY() + 20, 230, 50);
+  // rect(minMaxTextX, minMaxTextY, 180, 50); // Leave the rect out!
   
   textAlign(LEFT); 
   fill(#C23B22);
-  text("Min: " + String.format("%.2f", minFrequency / 1000) + "kHz " + String.format("%.2f", minValue) + "dB", graphX() + graphWidth() - 230, graphY() + 40);
+  text("Min: " + String.format("%.2f", minFrequency / 1000) + "kHz " + String.format("%.2f", minValue) + "dB", minMaxTextX +5, minMaxTextY+20);
   fill(#03C03C);
-  text("Max: " + String.format("%.2f", maxFrequency / 1000) + "kHz " + String.format("%.2f", maxValue) + "dB", graphX() + graphWidth() - 230, graphY() + 60);
-  
-  
-} 
+  text("Max: " + String.format("%.2f", maxFrequency / 1000) + "kHz " + String.format("%.2f", maxValue) + "dB", minMaxTextX+5, minMaxTextY+40);
+ 
+}
+
 
 void freezeDisplay() {
 //================ added by DJN 26 Aug 2017

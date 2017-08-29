@@ -15,11 +15,13 @@ int graphY() {
 }
 
 void graphDrawLine(int x1, int y1, int x2, int y2, int lineColor, float alpha) {
+// this rtn draws the frequency trace on the screen ===========
   stroke(lineColor, alpha);
   line(x1 + graphX(), graphHeight() - y1 + graphY(), x2 + graphX(), graphHeight() - y2 + graphY());
 }
 
 void drawGraphMatt(double minValue, double maxValue, int minFreq, int maxFreq) {
+// This rtn draws the grid on the screen ======================
   int pixelSpacing = 50;
 
   int verticals = (graphWidth() / pixelSpacing  / 5) * 5; 
@@ -53,4 +55,5 @@ void drawGraphMatt(double minValue, double maxValue, int minFreq, int maxFreq) {
     text(round((float)yPos) + "", graphX() - 5, graphY() + i * horizontalSpacing + 4);
     yPos -= yStep;
   }  
+
 }
