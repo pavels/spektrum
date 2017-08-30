@@ -400,12 +400,13 @@ void freezeDisplay() {
 //================ added by DJN 26 Aug 2017
   if (frozen) {
     frozen = false;
-    cp5.get(Button.class,"freezeDisplay").getCaptionLabel().setText("Pause");loop();
+    cp5.get(Button.class,"freezeDisplay").getCaptionLabel().setText("Pause");
+    loop();
     println("Display unfrozen.");
   }
   else {
     frozen = true;
-    cp5.get(Button.class,"freezeDisplay").getCaptionLabel().setText("Run");loop();
+    cp5.get(Button.class,"freezeDisplay").getCaptionLabel().setText("Run");
     noLoop();
     println("Display frozen."); 
   }
