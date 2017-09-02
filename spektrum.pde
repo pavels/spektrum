@@ -1,6 +1,8 @@
 import controlP5.*;
 import rtlspektrum.Rtlspektrum;
 import java.io.FileWriter;           // added by Dave N 24 Aug 2017
+import java.util.*;
+
 
 Rtlspektrum spektrumReader;
 ControlP5 cp5;
@@ -8,6 +10,7 @@ ControlP5 cp5;
 int startFreq = 88000000;
 int stopFreq = 108000000;
 int binStep = 1000;
+int vertCursorFreq = 88000000;
 
 int scaleMin = -110;
 int scaleMax = 40;
@@ -41,8 +44,13 @@ Table table;
 String fileName = "config.csv";  // config file used to save and load program setting like frequency etc.
 boolean setupDone = false;
 boolean frozen = true;
+boolean vertCursor = false;
 float minMaxTextX = 10;
 float minMaxTextY = 560;
+boolean overGraph = false;
+boolean mouseDragLock = false;
+int lastMouseX;
+color buttonColor = color(127,127,127);
 //=========================
 
 void MsgBox( String Msg, String Title ){
@@ -59,10 +67,12 @@ void setupControls() {
 
   cp5 = new ControlP5(this);
 
+   
   cp5.addTextfield("startFreqText")
     .setPosition(x, y)
     .setSize(width, 20)
     .setText(str(startFreq))
+    .setAutoClear(false)
     .getCaptionLabel().align(ControlP5.LEFT, ControlP5.TOP_OUTSIDE).setText("Start frequency [Hz]")    
     ;
 
@@ -72,6 +82,7 @@ void setupControls() {
     .setPosition(x, y)
     .setSize(width, 20)
     .setText(str(stopFreq))
+    .setAutoClear(false)
     .getCaptionLabel().align(ControlP5.LEFT, ControlP5.TOP_OUTSIDE).setText("End frequency [Hz]")
     ;
 
@@ -81,17 +92,30 @@ void setupControls() {
     .setPosition(x, y)
     .setSize(width, 20)
     .setText(str(binStep))
+    .setAutoClear(false)
     .getCaptionLabel().align(ControlP5.LEFT, ControlP5.TOP_OUTSIDE).setText("Bin size [Hz]")
     ;
+    
+y += 40;
 
+   cp5.addTextfield("vertCursorFreqText")
+    .setPosition(x, y)
+    .setSize(width, 20)
+    .setText(str(vertCursorFreq))
+    .setAutoClear(false)
+    .getCaptionLabel().align(ControlP5.LEFT, ControlP5.TOP_OUTSIDE).setText("Red Cursor")  
+    ;
+    
   y += 30;
 
   cp5.addButton("setRange")
     .setValue(0)
-    .setPosition(x, y)
-    .setSize(width, 20)
+    .setPosition(x+width/4, y)
+    .setSize(width/2, 20)
+    .setColorBackground(buttonColor)
     .getCaptionLabel().align(ControlP5.CENTER, ControlP5.CENTER).setText("Set range")
     ;
+
 
   y += 50;
 
@@ -99,6 +123,7 @@ void setupControls() {
     .setPosition(x, y)
     .setSize((width - 10) / 2, 20)
     .setText(str(scaleMin))
+    .setAutoClear(false)
     .getCaptionLabel().align(ControlP5.LEFT, ControlP5.TOP_OUTSIDE).setText("Lower")
     ;
 
@@ -106,15 +131,18 @@ void setupControls() {
     .setPosition((width - 10) / 2 + 24, y)
     .setSize((width - 10) / 2, 20)
     .setText(str(scaleMax))
+    .setAutoClear(false)
     .getCaptionLabel().align(ControlP5.LEFT, ControlP5.TOP_OUTSIDE).setText("Upper")
     ;
 
+  
   y += 30;
 
   cp5.addButton("setScale")
     .setValue(0)
-    .setPosition(x, y)
-    .setSize(width, 20)
+    .setPosition(x+width/4, y)
+    .setSize(width/2, 20)
+    .setColorBackground(buttonColor)
     .getCaptionLabel().align(ControlP5.CENTER, ControlP5.CENTER).setText("Set scale")
     ;
     
@@ -122,9 +150,9 @@ void setupControls() {
   
   cp5.addButton("autoScale")
     .setValue(0)
-    .setPosition(x, y)
-    .setSize(width, 20)
-    .getCaptionLabel().align(ControlP5.CENTER, ControlP5.CENTER).setText("Auto scale")
+    .setPosition(x+width/4, y)
+    .setSize(width/2, 20)
+    .setColorBackground(buttonColor).getCaptionLabel().align(ControlP5.CENTER, ControlP5.CENTER).setText("Auto scale")
     ;
     
  
@@ -175,23 +203,27 @@ void setupControls() {
 
   cp5.addButton("toggleRelMode")
     .setValue(0)
-    .setPosition(x, y)
-    .setSize(width, 20)
+    .setPosition(x+width/4, y)
+    .setSize(width/2, 20)
+    .setColorBackground(buttonColor)
     .getCaptionLabel().align(ControlP5.CENTER, ControlP5.CENTER).setText("Relative mode");
+  
   y += 30;  
  
   cp5.addButton("freezeDisplay")
     .setValue(0)
-    .setPosition(x, y)
-    .setSize(width, 20)
+    .setPosition(x+width/4, y)
+    .setSize(width/2, 20)
+    .setColorBackground(buttonColor)
     .getCaptionLabel().align(ControlP5.CENTER, ControlP5.CENTER).setText("Pause");
-    
+        
  y += 30;
   
   cp5.addButton("exitProgram")
     .setValue(0)
-    .setPosition(x, y)
-    .setSize(width, 20)
+    .setPosition(x+width/4, y)
+    .setSize(width/2, 20)
+    .setColorBackground(buttonColor)
     .getCaptionLabel().align(ControlP5.CENTER, ControlP5.CENTER).setText("Exit");
     
  
@@ -223,7 +255,9 @@ public void setRange(int theValue) {
     startFreq = parseInt(cp5.get(Textfield.class,"startFreqText").getText());
     stopFreq = parseInt(cp5.get(Textfield.class,"stopFreqText").getText());
     binStep = parseInt(cp5.get(Textfield.class,"binStepText").getText());
+    vertCursorFreq = parseInt(cp5.get(Textfield.class,"vertCursorFreqText").getText());
   }catch(Exception e){
+    println("setRange exception.");
     return;
   }
   
@@ -393,8 +427,11 @@ fill(#222324);
   fill(#03C03C);
   text("Max: " + String.format("%.2f", maxFrequency / 1000) + "kHz " + String.format("%.2f", maxValue) + "dB", minMaxTextX+5, minMaxTextY+40);
  
+  setVertCursor();
+  drawVertCursor();
+ 
 }
-
+// end of draw rtn =============================================
 
 void freezeDisplay() {
 //================ added by DJN 26 Aug 2017
@@ -429,21 +466,25 @@ void loadConfig() {
     binStep = table.getInt(0, "binStep");
     scaleMin = table.getInt(0, "scaleMin");
     scaleMax = table.getInt(0, "scaleMax");
+    vertCursorFreq = table.getInt(0, "vertCursorFreq");
     println("Config table " + fileName + " loaded."); 
-    println("startFreq = " + startFreq + " stopFreq = " + stopFreq + " binStep = " + binStep + " scaleMin = " + scaleMin + " scaleMax = ", scaleMax);
+      println("startFreq = " + startFreq + " stopFreq = " + stopFreq + " binStep = " + binStep + " scaleMin = " + scaleMin + " scaleMax = ", scaleMax + " vertCusorFreq = " + vertCursorFreq);
   } 
   
 void saveConfig() {
 //================ Function added by DJN 24 Aug 2017
-
-    table.setInt(0, "startFreq", startFreq);
-    table.setInt(0, "stopFreq",stopFreq);
-    table.setInt(0, "binStep", binStep);
-    table.setInt(0, "scaleMin", scaleMin);
-    table.setInt(0, "scaleMax", scaleMax);
-    saveTable(table, fileName, "csv");
-    println("startFreq = " + startFreq + " stopFreq = " + stopFreq + " binStep = " + binStep + " scaleMin = " + scaleMin + " scaleMax = ", scaleMax);
-    println("Config table " + fileName + " saved."); 
+// Note: saveTable fails if file is being backed up at time saveTable is run! 
+    
+      table.setInt(0, "startFreq", startFreq);
+      table.setInt(0, "stopFreq",stopFreq);
+      table.setInt(0, "binStep", binStep);
+      table.setInt(0, "scaleMin", scaleMin);
+      table.setInt(0, "scaleMax", scaleMax);
+      table.setInt(0, "vertCursorFreq",vertCursorFreq);
+      saveTable(table, fileName, "csv");
+      //println("startFreq = " + startFreq + " stopFreq = " + stopFreq + " binStep = " + binStep + " scaleMin = " + scaleMin + " scaleMax = ", scaleMax + " vertCusorFreq = " + vertCursorFreq);
+      println("Config table " + fileName + " saved.");
+    
   }
  
 void makeConfig() {
@@ -453,9 +494,9 @@ void makeConfig() {
   File file =null;
 
   try {
-            file=new File(fileName);
+    file=new File(fileName);
             if(file.exists()) {
-              //println("File exists.");
+              println("File " + dataPath(fileName) + " exists.");
             }
             else
             {
@@ -463,12 +504,12 @@ void makeConfig() {
                 file.createNewFile();
                 fw = new FileWriter(file);
                 // Write column headers to new config file
-                fw.write("startFreq,stopFreq,binStep,scaleMin,scaleMax\n");
+                fw.write("startFreq,stopFreq,binStep,scaleMin,scaleMax,vertCursorFreq\n");
                 // Write initial default values to new config file
-                fw.write(startFreq + "," + stopFreq + "," + binStep + "," + scaleMin + "," + scaleMax);
+                fw.write(startFreq + "," + stopFreq + "," + binStep + "," + scaleMin + "," + scaleMax + "," + vertCursorFreq);
                 fw.flush();
                 fw.close();
-                println(fileName +  " created succesfully");
+                println(dataPath(fileName) +  " created succesfully");
               }
             
             } 
@@ -479,3 +520,80 @@ void makeConfig() {
   println("Reached end of makeconfig");
 }
   
+void setVertCursor() {
+ // draw a vertical cursor line on the graph ================================
+
+  if (vertCursorFreq < startFreq ) {
+    vertCursorFreq = startFreq;
+    updateVertCursorText();
+    } 
+  else if (vertCursorFreq > stopFreq) {
+    vertCursorFreq = stopFreq;
+    updateVertCursorText();  
+  }
+      
+  if(mouseDragLock) {
+    updateVertCursorText();
+    }
+    
+
+}
+//==============================================
+void updateVertCursorText () {
+    cp5.get(Textfield.class,"vertCursorFreqText").setText(str(vertCursorFreq));
+  }
+
+//==============================================
+void drawVertCursor() {
+  
+  float xBand = (stopFreq - startFreq); 
+  float xCur = (vertCursorFreq - startFreq);
+  float xPlot = (xCur/xBand)* (graphWidth() + 230 - graphX());  // adjust cursor scale here!
+  stroke(#FF0000);
+  fill(#FF0000);
+  line(graphX()+ xPlot, graphY(), graphX()+ xPlot, graphY()+graphHeight());
+  //println("Bandwidth=" + xBand+ " cursor freq=" + vertCursorFreq +  " xCur=" + xCur + " Cursor =" + xPlot);
+  textAlign(CENTER);
+  text(numToStr(vertCursorFreq)  + " Hz", graphX() + xPlot, graphY()  - 10);
+  }
+
+// ====================================================================
+
+String numToStr(int inNum) {
+  // Convert number to string with commas  
+  String outStr = nfc(inNum);
+  return outStr;
+  } 
+  
+//============== Move the red vertical cursor===============================================  
+
+void mousePressed() {
+  // Test if the mouse over graph
+    int thisMouseX = mouseX;
+    if (thisMouseX >= graphX() && thisMouseX <= graphWidth() + graphX() +1 ){ //<>//
+      mouseDragLock = true; 
+      int clickFreq = startFreq + hzPerPixel() * (thisMouseX - graphX());
+      vertCursorFreq = clickFreq;
+      lastMouseX = mouseX;
+      //println("clickFreq = " + clickFreq);  
+  }
+    
+    
+  }
+
+void mouseDragged() {
+  if(mouseDragLock) {
+    int thisMouseX = mouseX;
+    vertCursorFreq = vertCursorFreq + (thisMouseX - lastMouseX) * hzPerPixel();
+    vertCursorFreq = round(vertCursorFreq/binStep) * binStep; // only allow frequency of multiples of binStep
+    lastMouseX = thisMouseX;
+  }
+}
+
+void mouseReleased() {
+  //if(mouseDragLock) {
+    mouseDragLock = false;
+    lastMouseX = 0;
+  //  saveConfig();
+  //}
+}

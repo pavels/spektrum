@@ -1,19 +1,30 @@
 int graphWidth() {
+
   return width - 255;
 }
 
 int graphX() {
+
+
   return 230;
 }
 
 int graphHeight() {
+
+
   return height - 50;
 }
 
 int graphY() {
+
+
   return 25;
 }
 
+int hzPerPixel() {
+    return (stopFreq - startFreq)/graphWidth();
+}
+    
 void graphDrawLine(int x1, int y1, int x2, int y2, int lineColor, float alpha) {
 // this rtn draws the frequency trace on the screen ===========
   stroke(lineColor, alpha);
@@ -39,6 +50,7 @@ void drawGraphMatt(double minValue, double maxValue, int minFreq, int maxFreq) {
   double yStep = (maxValue - minValue) / horizontals;
   double yPos = maxValue;
 
+//  stroke(#A7A7A7);
   stroke(#A7A7A7);
   fill(#A7A7A7);
 
