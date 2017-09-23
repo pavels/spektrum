@@ -13,7 +13,10 @@ FM frequency band             |  433 MHz antenna measurement
 
 Vertical Cursor
 
+
 Display Sample Dots
+
+![ Display Sample Dots ](https://raw.githubusercontent.com/dnegrych/spektrum/master/screenshots/screenShowSampleDots.png)
 
 Quick Start
 -----------
