@@ -51,6 +51,8 @@ boolean overGraph = false;
 boolean mouseDragLock = false;
 int lastMouseX;
 color buttonColor = color(127,127,127);
+boolean drawSampleToggle=false;
+boolean vertCursorToggle=true;
 //=========================
 
 void MsgBox( String Msg, String Title ){
@@ -90,22 +92,36 @@ void setupControls() {
 
   cp5.addTextfield("binStepText")
     .setPosition(x, y)
-    .setSize(width, 20)
+    .setSize((width - 10)/2, 20)
     .setText(str(binStep))
     .setAutoClear(false)
     .getCaptionLabel().align(ControlP5.LEFT, ControlP5.TOP_OUTSIDE).setText("Bin size [Hz]")
     ;
     
+  // toggle for how samples are shown - line / dots
+  cp5.addToggle("drawSampleToggle")
+     .setPosition((width - 10)/2 + 50,y)
+     .setSize(20,20)
+     .getCaptionLabel().align(ControlP5.LEFT, ControlP5.TOP_OUTSIDE).setText("Line/Dots")
+     ;
+     
 y += 40;
 
    cp5.addTextfield("vertCursorFreqText")
     .setPosition(x, y)
-    .setSize(width, 20)
+    .setSize((width - 10)/2, 20)
     .setText(str(vertCursorFreq))
     .setAutoClear(false)
     .getCaptionLabel().align(ControlP5.LEFT, ControlP5.TOP_OUTSIDE).setText("Red Cursor")  
     ;
     
+    // toggle vertical sursor on or off
+    cp5.addToggle("vertCursorToggle")
+     .setPosition((width - 10)/2 + 50,y)
+     .setSize(20,20)
+     .getCaptionLabel().align(ControlP5.LEFT, ControlP5.TOP_OUTSIDE).setText("On/Off")
+     ;
+  
   y += 30;
 
   cp5.addButton("setRange")
@@ -406,7 +422,8 @@ void draw() {
     if (point == null) continue;
 
     if (lastPoint != null) {
-      graphDrawLine(lastPoint.x, (int)((lastPoint.yAvg - scaleMin) * scaleFactor), point.x, (int)((point.yAvg - scaleMin) * scaleFactor), #D5921F, 255);
+      //graphDrawLine(lastPoint.x, (int)((lastPoint.yAvg - scaleMin) * scaleFactor), point.x, (int)((point.yAvg - scaleMin) * scaleFactor), #D5921F, 255);
+      graphDrawLine(lastPoint.x, (int)((lastPoint.yAvg - scaleMin) * scaleFactor), point.x, (int)((point.yAvg - scaleMin) * scaleFactor), #fcf400, 255);
       
       if(minmaxDisplay){
         graphDrawLine(lastPoint.x, (int)((lastPoint.yMin - scaleMin) * scaleFactor), point.x, (int)((point.yMin - scaleMin) * scaleFactor), #C23B22, 255);
@@ -427,8 +444,10 @@ fill(#222324);
   fill(#03C03C);
   text("Max: " + String.format("%.2f", maxFrequency / 1000) + "kHz " + String.format("%.2f", maxValue) + "dB", minMaxTextX+5, minMaxTextY+40);
  
-  setVertCursor();
-  drawVertCursor();
+ if(vertCursorToggle) {
+    setVertCursor();
+    drawVertCursor();
+    }
  
 }
 // end of draw rtn =============================================

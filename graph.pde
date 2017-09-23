@@ -28,7 +28,12 @@ int hzPerPixel() {
 void graphDrawLine(int x1, int y1, int x2, int y2, int lineColor, float alpha) {
 // this rtn draws the frequency trace on the screen ===========
   stroke(lineColor, alpha);
-  line(x1 + graphX(), graphHeight() - y1 + graphY(), x2 + graphX(), graphHeight() - y2 + graphY());
+  if (drawSampleToggle) {
+    ellipse(x2 + graphX(), graphHeight() - y2 + graphY(),1,1);
+  }
+  else {
+    line(x1 + graphX(), graphHeight() - y1 + graphY(), x2 + graphX(), graphHeight() - y2 + graphY());
+  }
 }
 
 void drawGraphMatt(double minValue, double maxValue, int minFreq, int maxFreq) {
@@ -68,4 +73,15 @@ void drawGraphMatt(double minValue, double maxValue, int minFreq, int maxFreq) {
     yPos -= yStep;
   }  
 
+}
+
+void sweep(int x1, int x2,  int lineColor, float alpha) {
+ // show sweep
+ 
+ // erase last marker
+   stroke(#000000, alpha);
+   line(x1 + graphX(), graphY()+10 ,x1 + graphX(), graphY()+graphHeight());
+ // plot new marker
+   stroke(lineColor, alpha);
+   line(x2 + graphX(), graphY()+10 ,x2 + graphX(), graphY()+graphHeight());
 }
