@@ -90,6 +90,10 @@ Contributing
 * Start a feature/bugfix branch.
 * Commit and push until you are happy with your contribution.
 
+Contributors
+-----
+ * [dnegrych](https://github.com/dnegrych)
+
 Copyright
 -----
 

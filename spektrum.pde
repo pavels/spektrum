@@ -15,12 +15,13 @@ int vertCursorFreq = 88000000;
 int scaleMin = -110;
 int scaleMax = 40;
 
+ListBox deviceDropdown;
 DropdownList gainDropdown;
 
+String[] devices;
 int[] gains;
 
 int relMode = 0;
-double[] relBuffer;
 
 double minFrequency;
 double minValue;
@@ -31,6 +32,7 @@ double maxValue;
 double maxScaledValue;
 
 boolean minmaxDisplay = false;
+boolean sweepDisplay = false;
 
 class DataPoint {
   public int x;
@@ -60,16 +62,33 @@ void MsgBox( String Msg, String Title ){
   javax.swing.JOptionPane.showMessageDialog ( null, Msg, Title, javax.swing.JOptionPane.ERROR_MESSAGE  );
 }
 
-void setupControls() {
+void setupStartControls(){
   int x, y;
   int width = 170;
 
   x = 15;
   y = 35;
 
-  cp5 = new ControlP5(this);
+  deviceDropdown = cp5.addListBox("deviceDropdown")
+                  .setBarHeight(20)
+                  .setItemHeight(20)
+                  .setPosition(x, y)
+                  .setSize(width, 80);
+ 
+  deviceDropdown.getCaptionLabel().align(ControlP5.LEFT, ControlP5.TOP_OUTSIDE).setText("Select device");
+  
+  for (int i=0; i<devices.length; i++){
+    deviceDropdown.addItem(devices[i], i);
+  } 
+}
 
-   
+void setupControls(){
+  int x, y;
+  int width = 170;
+
+  x = 15;
+  y = 35;
+
   cp5.addTextfield("startFreqText")
     .setPosition(x, y)
     .setSize(width, 20)
@@ -105,22 +124,22 @@ void setupControls() {
      .getCaptionLabel().align(ControlP5.LEFT, ControlP5.TOP_OUTSIDE).setText("Line/Dots")
      ;
      
-y += 40;
+  y += 40;
 
-   cp5.addTextfield("vertCursorFreqText")
+  cp5.addTextfield("vertCursorFreqText")
     .setPosition(x, y)
     .setSize((width - 10)/2, 20)
     .setText(str(vertCursorFreq))
     .setAutoClear(false)
     .getCaptionLabel().align(ControlP5.LEFT, ControlP5.TOP_OUTSIDE).setText("Red Cursor")  
     ;
-    
-    // toggle vertical sursor on or off
-    cp5.addToggle("vertCursorToggle")
-     .setPosition((width - 10)/2 + 50,y)
-     .setSize(20,20)
-     .getCaptionLabel().align(ControlP5.LEFT, ControlP5.TOP_OUTSIDE).setText("On/Off")
-     ;
+  
+  // toggle vertical sursor on or off
+  cp5.addToggle("vertCursorToggle")
+   .setPosition((width - 10)/2 + 50,y)
+   .setSize(20,20)
+   .getCaptionLabel().align(ControlP5.LEFT, ControlP5.TOP_OUTSIDE).setText("On/Off")
+   ;
   
   y += 30;
 
@@ -177,22 +196,26 @@ y += 40;
   
   cp5.addToggle("offsetToggle")
      .setPosition(x, y)
-     .setSize(50,10)
+     .setSize(20,20)
      .setValue(false)
-     .setMode(ControlP5.SWITCH)
      .getCaptionLabel().align(ControlP5.LEFT, ControlP5.TOP_OUTSIDE).setText("Offset tunning")
      ;  
 
   cp5.addToggle("minmaxToggle")
      .setPosition(x + 70, y)
-     .setSize(50,10)
+     .setSize(20,20)
      .setValue(false)
-     .setMode(ControlP5.SWITCH)
      .getCaptionLabel().align(ControlP5.LEFT, ControlP5.TOP_OUTSIDE).setText("Min/Max")
      ;  
 
+  cp5.addToggle("sweepToggle")
+     .setPosition(x + 140, y)
+     .setSize(20,20)
+     .setValue(false)
+     .getCaptionLabel().align(ControlP5.LEFT, ControlP5.TOP_OUTSIDE).setText("Sweep")
+     ;  
     
-  y += 20;
+  y += 30;
   
   cp5.addTextlabel("label")
                     .setText("GAIN")
@@ -204,11 +227,12 @@ y += 40;
                     .setBarHeight(20)
                     .setItemHeight(20)
                     .setPosition(x, y)
-                    .setSize(width, 80);
+                    .setSize(width, 80)
+                    ;
   
   gainDropdown.getCaptionLabel().align(ControlP5.LEFT, ControlP5.TOP_OUTSIDE).setText("");
   
-  for (int i=0; i<gains.length; i++) {
+  for (int i=0; i<gains.length; i++){
     gainDropdown.addItem(str(gains[i]), gains[i]);
   }
   
@@ -222,7 +246,8 @@ y += 40;
     .setPosition(x+width/4, y)
     .setSize(width/2, 20)
     .setColorBackground(buttonColor)
-    .getCaptionLabel().align(ControlP5.CENTER, ControlP5.CENTER).setText("Relative mode");
+    .getCaptionLabel().align(ControlP5.CENTER, ControlP5.CENTER).setText("Relative mode")
+    ;
   
   y += 30;  
  
@@ -231,23 +256,25 @@ y += 40;
     .setPosition(x+width/4, y)
     .setSize(width/2, 20)
     .setColorBackground(buttonColor)
-    .getCaptionLabel().align(ControlP5.CENTER, ControlP5.CENTER).setText("Pause");
+    .getCaptionLabel().align(ControlP5.CENTER, ControlP5.CENTER).setText("Pause")
+    ;
         
- y += 30;
+  y += 30;
   
   cp5.addButton("exitProgram")
     .setValue(0)
     .setPosition(x+width/4, y)
     .setSize(width/2, 20)
     .setColorBackground(buttonColor)
-    .getCaptionLabel().align(ControlP5.CENTER, ControlP5.CENTER).setText("Exit");
+    .getCaptionLabel().align(ControlP5.CENTER, ControlP5.CENTER).setText("Exit")
+    ;
     
  
-    println("Reached end of setupControls.");
+  println("Reached end of setupControls.");
 }
 
-public void offsetToggle(int theValue) {
-  if(frameCount >1){
+public void offsetToggle(int theValue){
+  if(setupDone){
     if(theValue > 0){
       spektrumReader.setOffsetTunning(true);
     }else{
@@ -256,8 +283,8 @@ public void offsetToggle(int theValue) {
   }
 }
 
-public void minmaxToggle(int theValue) {
-  if(frameCount >1){
+public void minmaxToggle(int theValue){
+  if(setupDone){
     if(theValue > 0){
       minmaxDisplay = true;
     }else{
@@ -266,7 +293,18 @@ public void minmaxToggle(int theValue) {
   }
 }
 
-public void setRange(int theValue) {
+public void sweepToggle(int theValue){
+  if(setupDone){
+    if(theValue > 0){
+      sweepDisplay = true;
+    }else{
+      sweepDisplay = false;
+    }
+  }
+}
+
+
+public void setRange(int theValue){
   try{
     startFreq = parseInt(cp5.get(Textfield.class,"startFreqText").getText());
     stopFreq = parseInt(cp5.get(Textfield.class,"stopFreqText").getText());
@@ -282,16 +320,14 @@ public void setRange(int theValue) {
   //============ added by Dave N 24 Aug 2017
   saveConfig();
   //============================
-
   
   relMode = 0;
   spektrumReader.clearFrequencyRange();
   spektrumReader.setFrequencyRange(startFreq, stopFreq, binStep);
   spektrumReader.startAutoScan();
-
 }
 
-public void setScale(int theValue) {
+public void setScale(int theValue){
   try{
     scaleMin = parseInt(cp5.get(Textfield.class,"scaleMinText").getText());
     scaleMax = parseInt(cp5.get(Textfield.class,"scaleMaxText").getText());
@@ -303,8 +339,8 @@ public void setScale(int theValue) {
   //============================
 }
 
-public void autoScale(int theValue) {
-  if(frameCount >1){
+public void autoScale(int theValue){
+  if(setupDone){
    if(minmaxDisplay){
     scaleMin = (int)(minValue - abs((float)minValue*0.1));
     scaleMax = (int)(maxValue + abs((float)maxValue*0.1));     
@@ -317,31 +353,22 @@ public void autoScale(int theValue) {
   }
 }
 
-public void toggleRelMode(int theValue) {
-  if(frameCount >1){
+public void toggleRelMode(int theValue){
+  if(setupDone){
     relMode++;
-    if(relMode > 2) { relMode = 0; }
+    if(relMode > 2){ relMode = 0; }
   }
 }
 
-
-public void gainDropdown(int theValue){
-  spektrumReader.setGain(gains[theValue]);
-}
-
-void setup() {
-  size(1200, 750);  // Size should be the first statement
-  if (frame != null) {
-    surface.setResizable(true);
-  }  
-
-    //============ Function calls added by Dave N
-    makeConfig();  // create config file if it is not found.
-    loadConfig();
-    //============================
-    
-  spektrumReader = new Rtlspektrum(0);
+public void deviceDropdown(int theValue){  
+  deviceDropdown.hide();
+  spektrumReader = new Rtlspektrum(theValue);
   int status = spektrumReader.openDevice();
+  
+  //============ Function calls added by Dave N
+  makeConfig();  // create config file if it is not found.
+  loadConfig();
+  //============================
   
   if(status < 0){
     MsgBox("Can't open rtl-sdr device.","Spektrum");
@@ -353,19 +380,41 @@ void setup() {
 
   setupControls();
   relMode = 0;
-   setupDone = true;
-    
-    println("Reached end of setup.");
+  
+  setupDone = true;  
 }
 
-void stop() {
+public void gainDropdown(int theValue){  
+  spektrumReader.setGain(gains[theValue]);
+}
+
+void setup(){
+  size(1200, 750);  // Size should be the first statement
+  if (frame != null){
+    surface.setResizable(true);
+  }  
+
+  devices = Rtlspektrum.getDevices();
+  for (String dev : devices){
+    println(dev);
+  }
+  
+  cp5 = new ControlP5(this);
+  
+  setupStartControls();
+  println("Reached end of setup.");
+}
+
+void stop(){
   spektrumReader.stopAutoScan();
 } 
 
-
-
-void draw() {
+void draw(){
   background(color(#222324));
+  
+  if(!setupDone){    
+    return;
+  }
 
   if(relMode == 1){
     cp5.get(Button.class,"toggleRelMode").getCaptionLabel().setText("Set relative");
@@ -417,26 +466,23 @@ void draw() {
   double scaleFactor = (double)graphHeight() / (scaleMax - scaleMin);
   DataPoint lastPoint = null;
 
-  for (int i = 0; i < scaledBuffer.length; i++) {
+  for (int i = 0; i < scaledBuffer.length; i++){
     DataPoint point = scaledBuffer[i];
     if (point == null) continue;
 
-    if (lastPoint != null) {
-      //graphDrawLine(lastPoint.x, (int)((lastPoint.yAvg - scaleMin) * scaleFactor), point.x, (int)((point.yAvg - scaleMin) * scaleFactor), #D5921F, 255);
+    if (lastPoint != null){
       graphDrawLine(lastPoint.x, (int)((lastPoint.yAvg - scaleMin) * scaleFactor), point.x, (int)((point.yAvg - scaleMin) * scaleFactor), #fcf400, 255);
       
       if(minmaxDisplay){
         graphDrawLine(lastPoint.x, (int)((lastPoint.yMin - scaleMin) * scaleFactor), point.x, (int)((point.yMin - scaleMin) * scaleFactor), #C23B22, 255);
         graphDrawLine(lastPoint.x, (int)((lastPoint.yMax - scaleMin) * scaleFactor), point.x, (int)((point.yMax - scaleMin) * scaleFactor), #03C03C, 255);
       }
-
     }
     
     lastPoint = point;
   }
-fill(#222324);
+  fill(#222324);
   stroke(#D5921F);
-  // rect(minMaxTextX, minMaxTextY, 180, 50); // Leave the rect out!
   
   textAlign(LEFT); 
   fill(#C23B22);
@@ -444,23 +490,26 @@ fill(#222324);
   fill(#03C03C);
   text("Max: " + String.format("%.2f", maxFrequency / 1000) + "kHz " + String.format("%.2f", maxValue) + "dB", minMaxTextX+5, minMaxTextY+40);
  
- if(vertCursorToggle) {
+  if(vertCursorToggle){
     setVertCursor();
     drawVertCursor();
-    }
- 
+  }
+  
+  if(sweepDisplay){
+    int scanPos = (int)(((float)graphWidth() / (float)buffer.length) * (float)spektrumReader.getScanPos());
+    sweep(scanPos, #FFFFFF, 64);
+  }
 }
 // end of draw rtn =============================================
 
-void freezeDisplay() {
+void freezeDisplay(){
 //================ added by DJN 26 Aug 2017
-  if (frozen) {
+  if (frozen){
     frozen = false;
     cp5.get(Button.class,"freezeDisplay").getCaptionLabel().setText("Pause");
     loop();
     println("Display unfrozen.");
-  }
-  else {
+  }else{
     frozen = true;
     cp5.get(Button.class,"freezeDisplay").getCaptionLabel().setText("Run");
     noLoop();
@@ -469,102 +518,92 @@ void freezeDisplay() {
 }
 
 
-void exitProgram() {
-//================ added by DJN 24 Aug 2017
+void exitProgram(){
+  //================ added by DJN 24 Aug 2017
   println("Exit program rtn."); 
-//  MsgBox("Exiting program.", "Exit");
-   if(setupDone)  exit();
+  if(setupDone)  exit();
 }
 
-void loadConfig() {
-//================ Function added by DJN 24 Aug 2017
-
-    table = loadTable(fileName, "header");
-    startFreq = table.getInt(0, "startFreq");
-    stopFreq = table.getInt(0, "stopFreq");
-    binStep = table.getInt(0, "binStep");
-    scaleMin = table.getInt(0, "scaleMin");
-    scaleMax = table.getInt(0, "scaleMax");
-    vertCursorFreq = table.getInt(0, "vertCursorFreq");
-    println("Config table " + fileName + " loaded."); 
-      println("startFreq = " + startFreq + " stopFreq = " + stopFreq + " binStep = " + binStep + " scaleMin = " + scaleMin + " scaleMax = ", scaleMax + " vertCusorFreq = " + vertCursorFreq);
-  } 
+void loadConfig(){
+  //================ Function added by DJN 24 Aug 2017
+  table = loadTable(fileName, "header");
+  startFreq = table.getInt(0, "startFreq");
+  stopFreq = table.getInt(0, "stopFreq");
+  binStep = table.getInt(0, "binStep");
+  scaleMin = table.getInt(0, "scaleMin");
+  scaleMax = table.getInt(0, "scaleMax");
+  vertCursorFreq = table.getInt(0, "vertCursorFreq");
+  println("Config table " + fileName + " loaded."); 
+  println("startFreq = " + startFreq + " stopFreq = " + stopFreq + " binStep = " + binStep + " scaleMin = " + scaleMin + " scaleMax = ", scaleMax + " vertCusorFreq = " + vertCursorFreq);
+} 
   
-void saveConfig() {
-//================ Function added by DJN 24 Aug 2017
-// Note: saveTable fails if file is being backed up at time saveTable is run! 
-    
-      table.setInt(0, "startFreq", startFreq);
-      table.setInt(0, "stopFreq",stopFreq);
-      table.setInt(0, "binStep", binStep);
-      table.setInt(0, "scaleMin", scaleMin);
-      table.setInt(0, "scaleMax", scaleMax);
-      table.setInt(0, "vertCursorFreq",vertCursorFreq);
-      saveTable(table, fileName, "csv");
-      //println("startFreq = " + startFreq + " stopFreq = " + stopFreq + " binStep = " + binStep + " scaleMin = " + scaleMin + " scaleMax = ", scaleMax + " vertCusorFreq = " + vertCursorFreq);
-      println("Config table " + fileName + " saved.");
-    
-  }
+void saveConfig(){
+  //================ Function added by DJN 24 Aug 2017
+  // Note: saveTable fails if file is being backed up at time saveTable is run! 
+  
+  table.setInt(0, "startFreq", startFreq);
+  table.setInt(0, "stopFreq",stopFreq);
+  table.setInt(0, "binStep", binStep);
+  table.setInt(0, "scaleMin", scaleMin);
+  table.setInt(0, "scaleMax", scaleMax);
+  table.setInt(0, "vertCursorFreq",vertCursorFreq);
+  saveTable(table, fileName, "csv");
+  //println("startFreq = " + startFreq + " stopFreq = " + stopFreq + " binStep = " + binStep + " scaleMin = " + scaleMin + " scaleMax = ", scaleMax + " vertCusorFreq = " + vertCursorFreq);
+  println("Config table " + fileName + " saved.");
+}
  
-void makeConfig() {
-//================ function added by DJN 24 Aug 2017
-
+void makeConfig(){
+  //================ function added by DJN 24 Aug 2017
   FileWriter fw= null;
   File file =null;
+  
+  println("File " + dataPath(fileName));
 
   try {
-    file=new File(fileName);
-            if(file.exists()) {
-              println("File " + dataPath(fileName) + " exists.");
-            }
-            else
-            {
-                // Recreate missing config file
-                file.createNewFile();
-                fw = new FileWriter(file);
-                // Write column headers to new config file
-                fw.write("startFreq,stopFreq,binStep,scaleMin,scaleMax,vertCursorFreq\n");
-                // Write initial default values to new config file
-                fw.write(startFreq + "," + stopFreq + "," + binStep + "," + scaleMin + "," + scaleMax + "," + vertCursorFreq);
-                fw.flush();
-                fw.close();
-                println(dataPath(fileName) +  " created succesfully");
-              }
-            
-            } 
-      catch (IOException e) {
-            e.printStackTrace();
-        }
-   
+    file=new File(dataPath(fileName));
+    if(file.exists()){
+      println("File " + dataPath(fileName) + " exists.");
+    }else{
+      // Recreate missing config file
+      file.createNewFile();
+      fw = new FileWriter(file);
+      // Write column headers to new config file
+      fw.write("startFreq,stopFreq,binStep,scaleMin,scaleMax,vertCursorFreq\n");
+      // Write initial default values to new config file
+      fw.write(startFreq + "," + stopFreq + "," + binStep + "," + scaleMin + "," + scaleMax + "," + vertCursorFreq);
+      fw.flush();
+      fw.close();
+      println(dataPath(fileName) +  " created succesfully");
+    }
+  } 
+  catch(IOException e){
+      e.printStackTrace();
+  }
+ 
   println("Reached end of makeconfig");
 }
   
-void setVertCursor() {
- // draw a vertical cursor line on the graph ================================
-
-  if (vertCursorFreq < startFreq ) {
+void setVertCursor(){
+  // draw a vertical cursor line on the graph ================================
+  if (vertCursorFreq < startFreq ){
     vertCursorFreq = startFreq;
     updateVertCursorText();
-    } 
-  else if (vertCursorFreq > stopFreq) {
+  }else if(vertCursorFreq > stopFreq){
     vertCursorFreq = stopFreq;
     updateVertCursorText();  
   }
       
-  if(mouseDragLock) {
+  if(mouseDragLock){
     updateVertCursorText();
-    }
-    
-
+  }
 }
 //==============================================
-void updateVertCursorText () {
-    cp5.get(Textfield.class,"vertCursorFreqText").setText(str(vertCursorFreq));
-  }
+void updateVertCursorText (){
+  cp5.get(Textfield.class,"vertCursorFreqText").setText(str(vertCursorFreq));
+}
 
 //==============================================
-void drawVertCursor() {
-  
+void drawVertCursor(){  
   float xBand = (stopFreq - startFreq); 
   float xCur = (vertCursorFreq - startFreq);
   float xPlot = (xCur/xBand)* (graphWidth() + 230 - graphX());  // adjust cursor scale here!
@@ -574,34 +613,32 @@ void drawVertCursor() {
   //println("Bandwidth=" + xBand+ " cursor freq=" + vertCursorFreq +  " xCur=" + xCur + " Cursor =" + xPlot);
   textAlign(CENTER);
   text(numToStr(vertCursorFreq)  + " Hz", graphX() + xPlot, graphY()  - 10);
-  }
+}
 
 // ====================================================================
 
-String numToStr(int inNum) {
+String numToStr(int inNum){
   // Convert number to string with commas  
   String outStr = nfc(inNum);
   return outStr;
-  } 
+} 
   
 //============== Move the red vertical cursor===============================================  
 
-void mousePressed() {
+void mousePressed(){
   // Test if the mouse over graph
-    int thisMouseX = mouseX;
-    if (thisMouseX >= graphX() && thisMouseX <= graphWidth() + graphX() +1 ){ //<>//
-      mouseDragLock = true; 
-      int clickFreq = startFreq + hzPerPixel() * (thisMouseX - graphX());
-      vertCursorFreq = clickFreq;
-      lastMouseX = mouseX;
-      //println("clickFreq = " + clickFreq);  
+  int thisMouseX = mouseX;
+  if (thisMouseX >= graphX() && thisMouseX <= graphWidth() + graphX() +1){ //<>//
+    mouseDragLock = true; 
+    int clickFreq = startFreq + hzPerPixel() * (thisMouseX - graphX());
+    vertCursorFreq = clickFreq;
+    lastMouseX = mouseX;
+    //println("clickFreq = " + clickFreq);  
   }
-    
-    
-  }
+}
 
-void mouseDragged() {
-  if(mouseDragLock) {
+void mouseDragged(){
+  if(mouseDragLock){
     int thisMouseX = mouseX;
     vertCursorFreq = vertCursorFreq + (thisMouseX - lastMouseX) * hzPerPixel();
     vertCursorFreq = round(vertCursorFreq/binStep) * binStep; // only allow frequency of multiples of binStep
@@ -609,10 +646,7 @@ void mouseDragged() {
   }
 }
 
-void mouseReleased() {
-  //if(mouseDragLock) {
-    mouseDragLock = false;
-    lastMouseX = 0;
-  //  saveConfig();
-  //}
+void mouseReleased(){
+  mouseDragLock = false;
+  lastMouseX = 0;
 }

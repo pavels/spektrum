@@ -1,32 +1,25 @@
 int graphWidth() {
-
   return width - 255;
 }
 
 int graphX() {
-
-
   return 230;
 }
 
 int graphHeight() {
-
-
   return height - 50;
 }
 
 int graphY() {
-
-
   return 25;
 }
 
 int hzPerPixel() {
-    return (stopFreq - startFreq)/graphWidth();
+  return (stopFreq - startFreq)/graphWidth();
 }
     
 void graphDrawLine(int x1, int y1, int x2, int y2, int lineColor, float alpha) {
-// this rtn draws the frequency trace on the screen ===========
+  // this rtn draws the frequency trace on the screen ===========
   stroke(lineColor, alpha);
   if (drawSampleToggle) {
     ellipse(x2 + graphX(), graphHeight() - y2 + graphY(),1,1);
@@ -37,7 +30,7 @@ void graphDrawLine(int x1, int y1, int x2, int y2, int lineColor, float alpha) {
 }
 
 void drawGraphMatt(double minValue, double maxValue, int minFreq, int maxFreq) {
-// This rtn draws the grid on the screen ======================
+  // This rtn draws the grid on the screen ======================
   int pixelSpacing = 50;
 
   int verticals = (graphWidth() / pixelSpacing  / 5) * 5; 
@@ -55,7 +48,6 @@ void drawGraphMatt(double minValue, double maxValue, int minFreq, int maxFreq) {
   double yStep = (maxValue - minValue) / horizontals;
   double yPos = maxValue;
 
-//  stroke(#A7A7A7);
   stroke(#A7A7A7);
   fill(#A7A7A7);
 
@@ -75,13 +67,10 @@ void drawGraphMatt(double minValue, double maxValue, int minFreq, int maxFreq) {
 
 }
 
-void sweep(int x1, int x2,  int lineColor, float alpha) {
- // show sweep
+void sweep(int x,  int lineColor, float alpha) {
+  // show sweep
  
- // erase last marker
-   stroke(#000000, alpha);
-   line(x1 + graphX(), graphY()+10 ,x1 + graphX(), graphY()+graphHeight());
- // plot new marker
-   stroke(lineColor, alpha);
-   line(x2 + graphX(), graphY()+10 ,x2 + graphX(), graphY()+graphHeight());
+  // plot new marker
+  stroke(lineColor, alpha);
+  line(x + graphX(), graphY() ,x + graphX(), graphY()+graphHeight());
 }
