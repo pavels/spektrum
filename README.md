@@ -71,6 +71,7 @@ You need
 
 * Processing development environment [https://processing.org/](https://processing.org/)
 * rtlspektrum processing library [https://github.com/pavels/processing-rtlspektum-lib/releases](https://github.com/pavels/processing-rtlspektum-lib/releases) (unpack latest rtlspektrum.zip into your processing libraries folder)
+* controlP5 processing library [https://github.com/sojamo/controlp5](https://github.com/sojamo/controlp5)
 
 What is missing?
 ----
