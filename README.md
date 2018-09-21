@@ -1,7 +1,7 @@
 spektrum
 ==========
 
-UI improvements by SV8ARJ and SV1SGK. See below...
+UI improvements by SV8ARJ and SV1SGK. W.I.P. See below...
 
 Spektrum is spectrum analyzer software for use with [rtl-sdr](http://sdr.osmocom.org/trac/wiki/rtl-sdr).
 
