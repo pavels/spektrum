@@ -1,7 +1,22 @@
 spektrum
 ==========
 
-UI improvements by SV8ARJ and SV1SGK. W.I.P. Nothing yet....
+UI improvements by SV1SGK and SV8ARJ. W.I.P.
+In the works : 
+- 2 Cursors for Frequency axis (Dragable on graph with Right mouse button)
+- 2 Cursors for Amplitude axis (Dragable on graph with Right mouse button)
+- Absolute and differential measurements with cursors (Left mouse button, Single clik and/or drag)
+- Zoom functionality of the cursors's defined area (gain + frequency)
+- Frequency limits adjustment on graph with mouse wheel (Top area for upper, low area for lower)
+- Gain limits adjustment on graph with mouse wheel (left area for lower frequency, right for upper)
+- View/settings store/recall (elementary "back" operation, nice for quick zoomed in graph inspection)
+- Corrected "last settings saving"
+
+Soon with you.
+
+73's from Nick and George.
+
+
 
 Spektrum is spectrum analyzer software for use with [rtl-sdr](http://sdr.osmocom.org/trac/wiki/rtl-sdr).
 
