@@ -3,20 +3,76 @@ import rtlspektrum.Rtlspektrum;
 import java.io.FileWriter;           // added by Dave N 24 Aug 2017
 import java.util.*;
 
+// GRGNCK version 0.5-grg
 
 Rtlspektrum spektrumReader;
 ControlP5 cp5;
 
+boolean startingupBypassSaveConfiguration = true;
+
+
+
+
+interface  CURSORS {
+  int
+  CUR_NONE      = 0,
+  CUR_X_LEFT    = 1,
+  CUR_X_RIGHT   = 2,
+  CUR_Y_TOP     = 3,
+  CUR_Y_BOTTOM  = 4;
+}
+
+int movingCursor = CURSORS.CUR_NONE;
+
+
+final int ITEM_GAIN = 1;
+final int ITEM_FREQUENCY = 2;
+
+int timeToSet = 1;  // GRGNICK add
+int itemToSet = 0;  // GRGNICK add -- 1 is Gain, 2 is Frequency
+int infoText1X = 0;
+int infoText1Y = 0;
+int infoColor = #00FF3F;
+int infoLineX = 0;
+int infoLineY = 0;
+String infoText = "";
+
+
+int zoomBackFreqMin = 0;
+int zoomBackFreqMax = 0;
+int zoomBackScalMin = 0;
+int zoomBackScalMax = 0;
+
+int fullRangeMin = 24000000;
+int fullRangeMax = 1800000000;
+int fullScaleMin = -110;
+int fullScaleMax = 40;
+  
 int startFreq = 88000000;
 int stopFreq = 108000000;
 int binStep = 1000;
+int binStepProtection = 100;
 int vertCursorFreq = 88000000;
+int tmpFreq = 0;
 
 int scaleMin = -110;
 int scaleMax = 40;
 
+int cursorVerticalLeftX = -1;//graphX();
+int cursorVerticalRightX = -1;//(graphX() + graphWidth())*hzPerPixel();
+int cursorHorizontalTopY = -1;//graphY();
+int cursorHorizontalBottomY = -1;//graphY() + graphHeight();
+
+int cursorVerticalLeftX_Color = #3399ff;  // Cyan
+int cursorHorizontalBottomY_Color = #3399ff;
+
+int cursorVerticalRightX_Color = #ff80d5; // Magenta
+int cursorHorizontalTopY_Color = #ff80d5;
+
+int cursorDeltaColor = #00E010;
 ListBox deviceDropdown;
 DropdownList gainDropdown;
+
 
 String[] devices;
 int[] gains;
@@ -48,11 +104,14 @@ boolean setupDone = false;
 boolean frozen = true;
 boolean vertCursor = false;
 float minMaxTextX = 10;
-float minMaxTextY = 560;
+float minMaxTextY = 660;
 boolean overGraph = false;
 boolean mouseDragLock = false;
+int startDraggingThr = 5;
 int lastMouseX;
 color buttonColor = color(127,127,127);
+color setButtonColor = color(127,0,0);
+color clickMeButtonColor = color(20,200,20); 
 boolean drawSampleToggle=false;
 boolean vertCursorToggle=true;
 //=========================
@@ -89,26 +148,71 @@ void setupControls(){
   x = 15;
   y = 35;
 
+ 
   cp5.addTextfield("startFreqText")
     .setPosition(x, y)
-    .setSize(width, 20)
+    .setSize(width-50, 20)
     .setText(str(startFreq))
     .setAutoClear(false)
     .getCaptionLabel().align(ControlP5.LEFT, ControlP5.TOP_OUTSIDE).setText("Start frequency [Hz]")    
     ;
+    
+  
+  cp5.addButton("resetMin")
+    //.setValue(0)
+    .setPosition(width-30, y)
+    .setSize(40, 20)
+    .setColorBackground(buttonColor)
+    .getCaptionLabel().align(ControlP5.CENTER, ControlP5.CENTER).setText("|<< RST")
+    ;
+ 
 
   y += 40;
 
   cp5.addTextfield("stopFreqText")
     .setPosition(x, y)
-    .setSize(width, 20)
+    .setSize(width-50, 20)
     .setText(str(stopFreq))
     .setAutoClear(false)
     .getCaptionLabel().align(ControlP5.LEFT, ControlP5.TOP_OUTSIDE).setText("End frequency [Hz]")
     ;
+     
+ cp5.addButton("resetMax")
+    //.setValue(0)
+    .setPosition(width-30, y)
+    .setSize(40, 20)
+    .setColorBackground(buttonColor)
+    .getCaptionLabel().align(ControlP5.CENTER, ControlP5.CENTER).setText("RST >>|")
+    ;
+    
 
+
+
+  // GRG   
+/*  y += 30;
+
+  
+  cp5.addButton("setMinFreq")
+    .setValue(0)
+    .setPosition(x+width/4, y)
+    .setSize(width/4, 20)
+    .setColorBackground(buttonColor)
+    .getCaptionLabel().align(ControlP5.CENTER, ControlP5.CENTER).setText("S.Min")
+    ;    
+        
+ cp5.addButton("setMaxFreq")
+    .setValue(0)
+    .setPosition(x+width/2, y)
+    .setSize(width/4, 20)
+    .setColorBackground(buttonColor)
+    .getCaptionLabel().align(ControlP5.CENTER, ControlP5.CENTER).setText("S.Max")
+    ; 
+
+*/
+
+  
   y += 40;
-
+  
   cp5.addTextfield("binStepText")
     .setPosition(x, y)
     .setSize((width - 10)/2, 20)
@@ -124,8 +228,9 @@ void setupControls(){
      .getCaptionLabel().align(ControlP5.LEFT, ControlP5.TOP_OUTSIDE).setText("Line/Dots")
      ;
      
+/*RED-C-REM
   y += 40;
-
+  
   cp5.addTextfield("vertCursorFreqText")
     .setPosition(x, y)
     .setSize((width - 10)/2, 20)
@@ -133,14 +238,55 @@ void setupControls(){
     .setAutoClear(false)
     .getCaptionLabel().align(ControlP5.LEFT, ControlP5.TOP_OUTSIDE).setText("Red Cursor")  
     ;
-  
+    
+    
   // toggle vertical sursor on or off
   cp5.addToggle("vertCursorToggle")
    .setPosition((width - 10)/2 + 50,y)
    .setSize(20,20)
    .getCaptionLabel().align(ControlP5.LEFT, ControlP5.TOP_OUTSIDE).setText("On/Off")
    ;
+    */
+   
+   
+   ///////<
+   /*  
+  y += 30;
   
+  cp5.addButton("resetMin")
+    //.setValue(0)
+    .setPosition(x, y)
+    .setSize(40, 20)
+    .setColorBackground(buttonColor)
+    .getCaptionLabel().align(ControlP5.CENTER, ControlP5.CENTER).setText("|<< RST")
+    ; 
+  
+  cp5.addButton("setMin")
+    //.setValue(0)
+    .setPosition(x+42, y)
+    .setSize(40, 20)
+    .setColorBackground(setButtonColor)
+    .getCaptionLabel().align(ControlP5.CENTER, ControlP5.CENTER).setText("Min")
+    ;      
+        
+ cp5.addButton("setMax")
+    //.setValue(0)
+    .setPosition(x+42+42, y)
+    .setSize(40, 20)
+    .setColorBackground(setButtonColor)
+    .getCaptionLabel().align(ControlP5.CENTER, ControlP5.CENTER).setText("Max")
+    ;  
+        
+ cp5.addButton("resetMax")
+    //.setValue(0)
+    .setPosition(x+42+42+42, y)
+    .setSize(40, 20)
+    .setColorBackground(buttonColor)
+    .getCaptionLabel().align(ControlP5.CENTER, ControlP5.CENTER).setText("RST >>|")
+    ; 
+   */
+   ///////>
+   
   y += 30;
 
   cp5.addButton("setRange")
@@ -150,6 +296,8 @@ void setupControls(){
     .setColorBackground(buttonColor)
     .getCaptionLabel().align(ControlP5.CENTER, ControlP5.CENTER).setText("Set range")
     ;
+    
+    
 
 
   y += 50;
@@ -174,23 +322,41 @@ void setupControls(){
   y += 30;
 
   cp5.addButton("setScale")
-    .setValue(0)
+    //.setValue(0)
     .setPosition(x+width/4, y)
     .setSize(width/2, 20)
     .setColorBackground(buttonColor)
     .getCaptionLabel().align(ControlP5.CENTER, ControlP5.CENTER).setText("Set scale")
     ;
     
+    
   y += 30;
   
   cp5.addButton("autoScale")
-    .setValue(0)
-    .setPosition(x+width/4, y)
-    .setSize(width/2, 20)
+    //.setValue(0)
+    .setPosition(x, y)
+    .setSize(80, 20)
     .setColorBackground(buttonColor).getCaptionLabel().align(ControlP5.CENTER, ControlP5.CENTER).setText("Auto scale")
     ;
     
+  cp5.addButton("resetScale")
+    //.setValue(0)
+    .setPosition(x+90, y)
+    .setSize(80, 20)
+    .setColorBackground(buttonColor)
+    .getCaptionLabel().align(ControlP5.CENTER, ControlP5.CENTER).setText("Reset scale")
+    ;
+    
  
+ 
+  y += 40;
+  
+  // toggle vertical sursor on or off
+  cp5.addToggle("vertCursorToggle")
+   .setPosition((width)/2,y)
+   .setSize(20,20)
+   .getCaptionLabel().align(ControlP5.CENTER, ControlP5.TOP_OUTSIDE).setText("Cursors On/Off")
+   ;
     
   y += 40;
   
@@ -236,41 +402,60 @@ void setupControls(){
     gainDropdown.addItem(str(gains[i]), gains[i]);
   }
   
-  gainDropdown.setValue(0);
+  //gainDropdown.setValue(0);
   gainDropdown.getCaptionLabel().align(ControlP5.LEFT, ControlP5.TOP_OUTSIDE).setText(str(gains[0]));
  
   y += 100;  
-
-  cp5.addButton("toggleRelMode")
-    .setValue(0)
-    .setPosition(x+width/4, y)
-    .setSize(width/2, 20)
+  
+  cp5.addButton("zoomBack")
+    .setPosition(x, y)
+    .setSize(width/2-5, 20)
     .setColorBackground(buttonColor)
+    .getCaptionLabel().align(ControlP5.CENTER, ControlP5.CENTER).setText("Back")
+    ;
+  
+  cp5.addButton("zoomIn")
+    .setPosition(x+width/2+5, y)
+    .setSize(width/2-5, 20)
+    .setColorBackground(buttonColor)
+    .getCaptionLabel().align(ControlP5.CENTER, ControlP5.CENTER).setText("Zoom")
+    ;
+
+
+  y += 30;
+  
+  cp5.addButton("toggleRelMode")
+    //.setValue(0)
+    .setPosition(x, y)                //.setPosition(x+width/4, y)
+    .setSize(width, 20)               //.setSize(width/2, 20)
+    .setColorBackground(#700000)  //.setColorBackground(buttonColor)
     .getCaptionLabel().align(ControlP5.CENTER, ControlP5.CENTER).setText("Relative mode")
     ;
   
   y += 30;  
  
   cp5.addButton("freezeDisplay")
-    .setValue(0)
-    .setPosition(x+width/4, y)
-    .setSize(width/2, 20)
+    //.setValue(0)
+    .setPosition(x, y)
+    .setSize(width/2-5, 20)
     .setColorBackground(buttonColor)
     .getCaptionLabel().align(ControlP5.CENTER, ControlP5.CENTER).setText("Pause")
     ;
-        
-  y += 30;
   
   cp5.addButton("exitProgram")
-    .setValue(0)
-    .setPosition(x+width/4, y)
-    .setSize(width/2, 20)
+    //.setValue(0)
+    .setPosition(x+width/2+5, y)
+    .setSize(width/2-5, 20)
     .setColorBackground(buttonColor)
     .getCaptionLabel().align(ControlP5.CENTER, ControlP5.CENTER).setText("Exit")
     ;
     
+ minMaxTextY = y+50;
  
   println("Reached end of setupControls.");
+  
+  startingupBypassSaveConfiguration = false;//Ready laoding... now you are able to save..
+  
 }
 
 public void offsetToggle(int theValue){
@@ -305,11 +490,18 @@ public void sweepToggle(int theValue){
 
 
 public void setRange(int theValue){
+  
+  // Button color indicating change
+  cp5.get(Button.class,"setRange").setColorBackground( buttonColor );
+  
+  cursorVerticalLeftX = -1;
+  cursorVerticalRightX = -1;
+  
   try{
     startFreq = parseInt(cp5.get(Textfield.class,"startFreqText").getText());
     stopFreq = parseInt(cp5.get(Textfield.class,"stopFreqText").getText());
     binStep = parseInt(cp5.get(Textfield.class,"binStepText").getText());
-    vertCursorFreq = parseInt(cp5.get(Textfield.class,"vertCursorFreqText").getText());
+    //RED-C-REM  vertCursorFreq = parseInt(cp5.get(Textfield.class,"vertCursorFreqText").getText());
   }catch(Exception e){
     println("setRange exception.");
     return;
@@ -328,6 +520,13 @@ public void setRange(int theValue){
 }
 
 public void setScale(int theValue){
+  
+  // Button color indicating change
+  cp5.get(Button.class,"setScale").setColorBackground( buttonColor );
+    
+  cursorHorizontalTopY = -1;
+  cursorHorizontalBottomY = -1;
+  
   try{
     scaleMin = parseInt(cp5.get(Textfield.class,"scaleMinText").getText());
     scaleMax = parseInt(cp5.get(Textfield.class,"scaleMaxText").getText());
@@ -337,6 +536,19 @@ public void setScale(int theValue){
   //============ added by Dave N 24 Aug 2017
   saveConfig();
   //============================
+}
+
+
+public void resetScale(int theValue){
+
+  // Button color indicating change
+  //cp5.get(Button.class,"setScale").setColorBackground( clickMeButtonColor );
+  
+  scaleMin = fullScaleMin;
+  scaleMax = fullScaleMax;
+  cp5.get(Textfield.class,"scaleMinText").setText(str(scaleMin));
+  cp5.get(Textfield.class,"scaleMaxText").setText(str(scaleMax));
+  
 }
 
 public void autoScale(int theValue){
@@ -353,6 +565,60 @@ public void autoScale(int theValue){
   }
 }
 
+// On set scale (V or H) fix the cursors involved so the primaries are always on the lower side (swap them is needed).
+void swapCursors(){
+  int tmpInt;
+  
+  if (cursorVerticalLeftX > cursorVerticalRightX){
+    tmpInt = cursorVerticalLeftX;
+    cursorVerticalLeftX = cursorVerticalRightX;
+    cursorVerticalRightX = tmpInt;
+  }
+  
+  if (cursorHorizontalTopY > cursorHorizontalBottomY){
+    tmpInt = cursorHorizontalTopY;
+    cursorHorizontalTopY = cursorHorizontalBottomY;
+    cursorHorizontalBottomY = tmpInt;
+  }
+  
+}
+
+void zoomBack(){
+
+  swapCursors();//Fix order
+  
+  cp5.get(Textfield.class,"startFreqText").setText( str(zoomBackFreqMin) );
+  cp5.get(Textfield.class,"stopFreqText").setText( str(zoomBackFreqMax) );
+  cp5.get(Textfield.class,"scaleMinText").setText( str(zoomBackScalMin) );
+  cp5.get(Textfield.class,"scaleMaxText").setText( str(zoomBackScalMax) );
+  
+  zoomBackFreqMin = startFreq;
+  zoomBackFreqMax = stopFreq;
+  zoomBackScalMin = scaleMin;
+  zoomBackScalMax = scaleMax;
+  
+  setScale(1);
+  setRange(1);
+}
+
+void zoomIn(){
+  
+  swapCursors();//Fix order
+  
+  zoomBackFreqMin = startFreq;
+  zoomBackFreqMax = stopFreq;
+  zoomBackScalMin = scaleMin;
+  zoomBackScalMax = scaleMax;
+  
+  cp5.get(Textfield.class,"startFreqText").setText( str(startFreq + hzPerPixel() * (cursorVerticalLeftX - graphX())) );
+  cp5.get(Textfield.class,"stopFreqText").setText( str(startFreq + hzPerPixel() * (cursorVerticalRightX - graphX())) );
+  cp5.get(Textfield.class,"scaleMinText").setText( str(scaleMax - ( ( (cursorHorizontalBottomY - graphY()) * gainPerPixel() ) / 1000 )) );
+  cp5.get(Textfield.class,"scaleMaxText").setText( str(scaleMax - ( ( (cursorHorizontalTopY - graphY()) * gainPerPixel() ) / 1000 )) );
+  
+  setScale(1);
+  setRange(1);
+}
+
 public void toggleRelMode(int theValue){
   if(setupDone){
     relMode++;
@@ -366,7 +632,7 @@ public void deviceDropdown(int theValue){
   int status = spektrumReader.openDevice();
   
   //============ Function calls added by Dave N
-  makeConfig();  // create config file if it is not found.
+  //makeConfig();  // create config file if it is not found.
   loadConfig();
   //============================
   
@@ -411,6 +677,7 @@ void stop(){
 
 void draw(){
   background(color(#222324));
+  // background(color(#220000));
   
   if(!setupDone){    
     return;
@@ -481,14 +748,18 @@ void draw(){
     
     lastPoint = point;
   }
+  
   fill(#222324);
   stroke(#D5921F);
+  
+  
+  
   
   textAlign(LEFT); 
   fill(#C23B22);
   text("Min: " + String.format("%.2f", minFrequency / 1000) + "kHz " + String.format("%.2f", minValue) + "dB", minMaxTextX +5, minMaxTextY+20);
   fill(#03C03C);
-  text("Max: " + String.format("%.2f", maxFrequency / 1000) + "kHz " + String.format("%.2f", maxValue) + "dB", minMaxTextX+5, minMaxTextY+40);
+  text("Max: " + String.format("%.2f", maxFrequency / 1000) + "kHz " + String.format("%.2f", maxValue) + "dB", minMaxTextX +5, minMaxTextY+40);
  
   if(vertCursorToggle){
     setVertCursor();
@@ -499,6 +770,58 @@ void draw(){
     int scanPos = (int)(((float)graphWidth() / (float)buffer.length) * (float)spektrumReader.getScanPos());
     sweep(scanPos, #FFFFFF, 64);
   }
+  
+  /*
+  if (cursorVerticalLeftX >= 0) sweep( cursorVerticalLeftX - graphX(),  cursorVerticalLeftX_Color, 255);
+  else cursorVerticalLeftX = graphX();
+  if (cursorVerticalRightX >= 0) sweep( cursorVerticalRightX - graphX(),  cursorVerticalRightX_Color, 255);
+  else cursorVerticalRightX = graphX() + graphWidth();
+  if (cursorHorizontalTopY >= 0) sweepVertical( cursorHorizontalTopY - graphY(),  cursorHorizontalTopY_Color, 255);
+  else cursorHorizontalTopY = graphY();
+  if (cursorHorizontalBottomY >= 0) sweepVertical( cursorHorizontalBottomY - graphY(),  cursorHorizontalBottomY_Color, 255);
+  else cursorHorizontalBottomY = graphY() + graphHeight();
+  */
+  if (cursorVerticalLeftX < 0) cursorVerticalLeftX = graphX();
+  if (cursorVerticalRightX < 0) cursorVerticalRightX = graphX() + graphWidth();
+  if (cursorHorizontalTopY < 0) cursorHorizontalTopY = graphY();
+  if (cursorHorizontalBottomY < 0) cursorHorizontalBottomY = graphY() + graphHeight();
+  
+  
+  // ========================= GRGNICK 
+  //
+  if ( timeToSet > 1 ) {  // GRGNICK add
+     timeToSet--;
+     
+     if ( infoText1X != 0) {  // Do we need any infomative text ?
+        fill( infoColor );
+        textSize(40);
+        text( infoText,  infoText1X, infoText1Y );
+        textSize(12);
+        stroke(#FFFFFF);
+        if (itemToSet == ITEM_FREQUENCY)  line(infoLineX, graphY(),     infoLineX, graphY() + graphHeight());
+        if (itemToSet == ITEM_GAIN)       line(graphX(), infoLineY,     graphX() + graphWidth(),infoLineY);      
+     }
+     
+     /*if ( infoText1X != 0) {  // Do we need any infomative text ?
+        fill( infoColor );
+        textSize(40);
+        text( infoText,  infoText1X, infoText1Y );
+        textSize(12);
+     }*/
+  } 
+  else if ( timeToSet == 1 ) {
+      timeToSet = 0;
+      if (itemToSet == ITEM_FREQUENCY) setRange(1);
+      if (itemToSet == ITEM_GAIN) setScale(1);
+      
+      infoText1X = 0;
+  }
+  
+  
+  
+  
+  
+  
 }
 // end of draw rtn =============================================
 
@@ -524,6 +847,30 @@ void exitProgram(){
   if(setupDone)  exit();
 }
 
+// GRG-NICK
+public void resetMin(){
+  //Set the start freq at full range
+  
+  cp5.get(Textfield.class,"startFreqText").setText( str(fullRangeMin) );
+  
+  setRange(1);
+  
+}
+
+
+void resetMax(){
+  //Set the stop freq full range
+  
+  cp5.get(Textfield.class,"stopFreqText").setText( str(fullRangeMax) );
+  
+  setRange(1);
+  
+}
+
+
+
+
+
 void loadConfig(){
   //================ Function added by DJN 24 Aug 2017
   table = loadTable(fileName, "header");
@@ -533,36 +880,52 @@ void loadConfig(){
   scaleMin = table.getInt(0, "scaleMin");
   scaleMax = table.getInt(0, "scaleMax");
   vertCursorFreq = table.getInt(0, "vertCursorFreq");
+  
+  //Protection
+  if (binStep < binStepProtection) binStep = binStepProtection;
+  
+  // Init zoom back
+  zoomBackFreqMin = startFreq;
+  zoomBackFreqMax = stopFreq;
+  zoomBackScalMin = scaleMin;
+  zoomBackScalMax = scaleMax;
+  
+  
   println("Config table " + fileName + " loaded."); 
   println("startFreq = " + startFreq + " stopFreq = " + stopFreq + " binStep = " + binStep + " scaleMin = " + scaleMin + " scaleMax = ", scaleMax + " vertCusorFreq = " + vertCursorFreq);
+
+
 } 
   
 void saveConfig(){
   //================ Function added by DJN 24 Aug 2017
   // Note: saveTable fails if file is being backed up at time saveTable is run! 
   
-  table.setInt(0, "startFreq", startFreq);
-  table.setInt(0, "stopFreq",stopFreq);
-  table.setInt(0, "binStep", binStep);
-  table.setInt(0, "scaleMin", scaleMin);
-  table.setInt(0, "scaleMax", scaleMax);
-  table.setInt(0, "vertCursorFreq",vertCursorFreq);
-  saveTable(table, fileName, "csv");
-  //println("startFreq = " + startFreq + " stopFreq = " + stopFreq + " binStep = " + binStep + " scaleMin = " + scaleMin + " scaleMax = ", scaleMax + " vertCusorFreq = " + vertCursorFreq);
-  println("Config table " + fileName + " saved.");
-}
+  if (startingupBypassSaveConfiguration == false) {
+    table.setInt(0, "startFreq", startFreq);
+    table.setInt(0, "stopFreq",stopFreq);
+    table.setInt(0, "binStep", binStep);
+    table.setInt(0, "scaleMin", scaleMin);
+    table.setInt(0, "scaleMax", scaleMax);
+    table.setInt(0, "vertCursorFreq",vertCursorFreq);
+    saveTable(table, fileName, "csv");
+    println("startFreq = " + startFreq + " stopFreq = " + stopFreq + " binStep = " + binStep + " scaleMin = " + scaleMin + " scaleMax = ", scaleMax + " vertCusorFreq = " + vertCursorFreq);
+    println("Config table " + fileName + " saved.");
+  }
+  
+} //<>//
  
 void makeConfig(){
   //================ function added by DJN 24 Aug 2017
   FileWriter fw= null;
   File file =null;
   
-  println("File " + dataPath(fileName));
+  println("File " + fileName);//println("File " + dataPath(fileName));
 
   try {
-    file=new File(dataPath(fileName));
+    file=new File(fileName);//file=new File(dataPath(fileName));
     if(file.exists()){
-      println("File " + dataPath(fileName) + " exists.");
+      println("File " + fileName + " exists.");//println("File " + dataPath(fileName) + " exists.");
     }else{
       // Recreate missing config file
       file.createNewFile();
@@ -573,7 +936,7 @@ void makeConfig(){
       fw.write(startFreq + "," + stopFreq + "," + binStep + "," + scaleMin + "," + scaleMax + "," + vertCursorFreq);
       fw.flush();
       fw.close();
-      println(dataPath(fileName) +  " created succesfully");
+      println(fileName +  " created succesfully");//println(dataPath(fileName) +  " created succesfully");
     }
   } 
   catch(IOException e){
@@ -599,11 +962,17 @@ void setVertCursor(){
 }
 //==============================================
 void updateVertCursorText (){
-  cp5.get(Textfield.class,"vertCursorFreqText").setText(str(vertCursorFreq));
+  //RED-C-REM  cp5.get(Textfield.class,"vertCursorFreqText").setText(str(vertCursorFreq));
 }
 
 //==============================================
 void drawVertCursor(){  
+  float xBand;
+  float xCur;
+  float xPlot;
+  xBand = (stopFreq - startFreq);
+  
+  /*   Remove RED cursor
   float xBand = (stopFreq - startFreq); 
   float xCur = (vertCursorFreq - startFreq);
   float xPlot = (xCur/xBand)* (graphWidth() + 230 - graphX());  // adjust cursor scale here!
@@ -613,6 +982,58 @@ void drawVertCursor(){
   //println("Bandwidth=" + xBand+ " cursor freq=" + vertCursorFreq +  " xCur=" + xCur + " Cursor =" + xPlot);
   textAlign(CENTER);
   text(numToStr(vertCursorFreq)  + " Hz", graphX() + xPlot, graphY()  - 10);
+  */
+  
+  
+  
+  //GRGNICK Cursors
+  //
+  int freqLeft;
+  int freqRight;
+  freqLeft = startFreq + hzPerPixel() * (cursorVerticalLeftX - graphX());
+  freqRight = startFreq + hzPerPixel() * (cursorVerticalRightX - graphX());
+  int scaleBottom;
+  int scaleTop;
+  scaleBottom = scaleMax - ( ( (cursorHorizontalBottomY - graphY()) * gainPerPixel() ) / 1000 );
+  scaleTop = scaleMax - ( ( (cursorHorizontalTopY - graphY()) * gainPerPixel() ) / 1000 );
+  
+  // LEFT
+  stroke(cursorVerticalLeftX_Color);
+  fill(cursorVerticalLeftX_Color);
+  line(cursorVerticalLeftX, graphY(), cursorVerticalLeftX, graphY()+graphHeight());
+  textAlign(CENTER);
+  text(numToStr(freqLeft)  + " Hz", cursorVerticalLeftX-10, graphY()  - 10);
+  
+  // RIGHT
+  stroke(cursorVerticalRightX_Color);
+  fill(cursorVerticalRightX_Color);
+  line(cursorVerticalRightX, graphY(), cursorVerticalRightX, graphY()+graphHeight());
+  textAlign(CENTER);
+  text(numToStr(freqRight)  + " Hz", cursorVerticalRightX-10, graphY()  - 10);
+  
+  // FREQ DELTA
+  fill(cursorDeltaColor);
+  text("Δf " + numToStr(freqRight - freqLeft)  + " Hz", cursorVerticalLeftX+((cursorVerticalRightX-cursorVerticalLeftX)/2), graphY()  + 12);
+  
+  // BOTTOM
+  stroke(cursorHorizontalBottomY_Color);
+  fill(cursorHorizontalBottomY_Color);
+  line(graphX(), cursorHorizontalBottomY, graphX()+graphWidth(), cursorHorizontalBottomY);
+  textAlign(CENTER);
+  text(numToStr(scaleBottom)  + " db", graphX()+graphWidth()+20, cursorHorizontalBottomY+4);
+  
+  // TOP
+  stroke(cursorHorizontalTopY_Color);
+  fill(cursorHorizontalTopY_Color);
+  line(graphX(), cursorHorizontalTopY, graphX()+graphWidth(), cursorHorizontalTopY);
+  textAlign(CENTER);
+  text(numToStr(scaleTop)  + " db", graphX()+graphWidth()+20, cursorHorizontalTopY+4);
+  
+  // SCALE DELTA
+  fill(cursorDeltaColor);
+  text("Δs " + numToStr(scaleBottom - scaleTop)  + " db", graphX()+graphWidth()-20,    cursorHorizontalTopY+((cursorHorizontalBottomY-cursorHorizontalTopY)/2)    );
+
+  
 }
 
 // ====================================================================
@@ -625,28 +1046,338 @@ String numToStr(int inNum){
   
 //============== Move the red vertical cursor===============================================  
 
-void mousePressed(){
-  // Test if the mouse over graph
+void mousePressed(MouseEvent evnt){
   int thisMouseX = mouseX;
-  if (thisMouseX >= graphX() && thisMouseX <= graphWidth() + graphX() +1){ //<>//
-    mouseDragLock = true; 
-    int clickFreq = startFreq + hzPerPixel() * (thisMouseX - graphX());
-    vertCursorFreq = clickFreq;
-    lastMouseX = mouseX;
-    //println("clickFreq = " + clickFreq);  
+  int thisMouseY = mouseY;
+  
+  boolean CLICK_ABOVE;
+  boolean CLICK_LEFT;
+  boolean DOUBLE_CLICK;
+  
+  CLICK_ABOVE = false;
+  CLICK_LEFT = false;
+  DOUBLE_CLICK = false;
+  
+  if (evnt.getCount() == 2) { DOUBLE_CLICK = true;
+    if (mouseButton == LEFT) { cursorVerticalRightX = graphWidth() + graphX();    cursorHorizontalTopY = graphY(); }
+    if (mouseButton == CENTER) {resetMin();   resetMax();   resetScale(1); };
+    if (mouseButton == RIGHT) zoomIn() ;
+    
+    
+    println("DOUBLE CLICK DETECTED");
+    return;    // ATTENTION !!! RETURN !!!! BAD BAD HABIT. TODO properly.
   }
+  
+  
+  //Protecion
+  if (thisMouseX < graphX() || thisMouseX > graphWidth() + graphX() +1) return;
+  if (thisMouseY < graphY() || thisMouseY > graphHeight() + graphY() +1) return;
+  
+  //Calculate center
+  if ( (thisMouseX - graphX()) < (graphWidth()/2) ){
+    CLICK_LEFT = true;
+  }
+  
+  if ( (thisMouseY - graphY() < graphHeight()/2) ){
+    CLICK_ABOVE = true;
+  }
+  
+  
+  int clickFreq = startFreq + hzPerPixel() * (thisMouseX - graphX());
+  int clickScale;
+  clickScale = ( (thisMouseY - graphY()) * gainPerPixel() ) / 1000 ;   //      startFreq + hzPerPixel() * (thisMouseY - graphY());
+  clickScale = scaleMax - clickScale;
+  
+  if (mouseButton == LEFT)
+  {
+    // Test if the mouse over graph
+    if (thisMouseX >= graphX() && thisMouseX <= graphWidth() + graphX() +1){ //<>//
+      mouseDragLock = true; 
+      
+      vertCursorFreq = clickFreq;
+      lastMouseX = mouseX;
+      println("clickFreq = " + clickFreq);    
+    }
+    
+    
+    cursorVerticalLeftX = mouseX;
+    cursorHorizontalBottomY = mouseY;
+    
+    println("clickFreq: " + clickFreq + ",   clickScale: " + clickScale);
+    
+    
+  }
+  else if (mouseButton == CENTER){
+    
+    if ( abs(mouseX-cursorVerticalLeftX) <= 5 ){
+      println("CLICK_LEFT");
+      cp5.get(Textfield.class,"startFreqText").setText( str(clickFreq) );
+      sweep( mouseX - graphX(),  #fcf400, 255);
+      cursorVerticalLeftX = mouseX;
+      movingCursor = CURSORS.CUR_X_LEFT;
+      
+    }
+    else if ( abs(mouseX-cursorVerticalRightX) <= 5 ){
+      println("CLICK_RIGHT");
+      cp5.get(Textfield.class,"stopFreqText").setText( str(clickFreq) );
+      sweep( mouseX - graphX(),  #fcd420, 255);
+      cursorVerticalRightX = mouseX;
+      movingCursor = CURSORS.CUR_X_RIGHT;
+      
+    }
+    
+    /*
+    if (CLICK_LEFT){
+      println("CLICK_LEFT");
+      cp5.get(Textfield.class,"startFreqText").setText( str(clickFreq) );
+      sweep( mouseX - graphX(),  #fcf400, 255);
+      cursorVerticalLeftX = mouseX;
+      movingCursor = CURSORS.CUR_X_LEFT;
+      
+    }
+    else{
+      println("CLICK_RIGHT");
+      cp5.get(Textfield.class,"stopFreqText").setText( str(clickFreq) );
+      sweep( mouseX - graphX(),  #fcd420, 255);
+      cursorVerticalRightX = mouseX;
+      movingCursor = CURSORS.CUR_X_RIGHT;
+      
+    }
+    */
+    
+    // Button color indicating change
+    cp5.get(Button.class,"setRange").setColorBackground( clickMeButtonColor );
+    
+    //    setVertCursor();
+    // drawVertCursor();
+
+    
+  }
+  else if (mouseButton == RIGHT){
+    
+    if ( abs(mouseY-cursorHorizontalTopY) <= 5 ){
+      println("CLICK_ABOVE " + clickScale);
+      cp5.get(Textfield.class,"scaleMaxText").setText(str(clickScale));
+      sweepVertical( mouseY - graphY(),  #fcd420, 255);
+      cursorHorizontalTopY = mouseY;
+      movingCursor = CURSORS.CUR_Y_TOP;
+      
+    }
+    else if ( abs(mouseY-cursorHorizontalBottomY) <= 5 ){
+      println("CLICK_DOWN" + clickScale);
+      cp5.get(Textfield.class,"scaleMinText").setText(str(clickScale));
+      sweepVertical( mouseY - graphY(),  #fcd420, 255);
+      cursorHorizontalBottomY = mouseY;
+      movingCursor = CURSORS.CUR_Y_BOTTOM;
+    }
+    
+    /*
+    if (CLICK_ABOVE){
+      println("CLICK_ABOVE " + clickScale);
+      cp5.get(Textfield.class,"scaleMaxText").setText(str(clickScale));
+      sweepVertical( mouseY - graphY(),  #fcd420, 255);
+      cursorHorizontalTopY = mouseY;
+      movingCursor = CURSORS.CUR_Y_TOP;
+      
+    }
+    else{
+      println("CLICK_DOWN" + clickScale);
+      cp5.get(Textfield.class,"scaleMinText").setText(str(clickScale));
+      sweepVertical( mouseY - graphY(),  #fcd420, 255);
+      cursorHorizontalBottomY = mouseY;
+      movingCursor = CURSORS.CUR_Y_BOTTOM;
+    }
+    */
+    
+    // Button color indicating change
+    cp5.get(Button.class,"setScale").setColorBackground( clickMeButtonColor );
+    
+  }
+  
 }
 
 void mouseDragged(){
+  int thisMouseX = mouseX;
+  int thisMouseY = mouseY;
+  
+  //Protecion
+  if (thisMouseX < graphX() || thisMouseX > graphWidth() + graphX() +1) return;
+  if (thisMouseY < graphY() || thisMouseY > graphHeight() + graphY() +1) return;
+  
+  // Dragging Red cursor
   if(mouseDragLock){
-    int thisMouseX = mouseX;
-    vertCursorFreq = vertCursorFreq + (thisMouseX - lastMouseX) * hzPerPixel();
+    /*vertCursorFreq = vertCursorFreq + (thisMouseX - lastMouseX) * hzPerPixel();
     vertCursorFreq = round(vertCursorFreq/binStep) * binStep; // only allow frequency of multiples of binStep
-    lastMouseX = thisMouseX;
+    lastMouseX = thisMouseX;*/
+    
+    if ( ( abs(cursorVerticalLeftX - mouseX) > startDraggingThr ) || ( abs(cursorHorizontalBottomY - mouseY) > startDraggingThr ) ){
+      cursorVerticalRightX = mouseX;
+      cursorHorizontalTopY = mouseY;
+    }
+    
   }
+  
+  
+  if (movingCursor == CURSORS.CUR_X_LEFT) {
+    if (thisMouseX<cursorVerticalRightX) {
+      cursorVerticalLeftX = thisMouseX;
+      int clickFreq = startFreq + hzPerPixel() * (thisMouseX - graphX());
+      cp5.get(Textfield.class,"startFreqText").setText( str(clickFreq) );
+    }
+  }
+  else if (movingCursor == CURSORS.CUR_X_RIGHT) {
+    if (thisMouseX>cursorVerticalLeftX) { 
+      cursorVerticalRightX = thisMouseX;
+      int clickFreq = startFreq + hzPerPixel() * (thisMouseX - graphX());
+      cp5.get(Textfield.class,"stopFreqText").setText( str(clickFreq) );
+    }
+  }
+  else if (movingCursor == CURSORS.CUR_Y_TOP) {
+    if (thisMouseY<cursorHorizontalBottomY) {
+      cursorHorizontalTopY = thisMouseY;
+      int clickScale = scaleMax - ( ( (thisMouseY - graphY()) * gainPerPixel() ) / 1000 ) ;
+      cp5.get(Textfield.class,"scaleMaxText").setText(str(clickScale));
+    }
+  }
+  else if (movingCursor == CURSORS.CUR_Y_BOTTOM) {
+    if (thisMouseY>cursorHorizontalTopY) {
+      cursorHorizontalBottomY = thisMouseY;
+      int clickScale = scaleMax - ( ( (thisMouseY - graphY()) * gainPerPixel() ) / 1000 ) ;
+      cp5.get(Textfield.class,"scaleMinText").setText(str(clickScale));
+    }
+  }
+  stroke(#606060);
+  line( cursorVerticalLeftX, cursorHorizontalBottomY,   mouseX, mouseY) ;
+  
 }
 
 void mouseReleased(){
   mouseDragLock = false;
   lastMouseX = 0;
+    
+  movingCursor = CURSORS.CUR_NONE;
+}
+
+
+void mouseWheel(MouseEvent event){
+  final int NOTHING = 0;
+  final int GAIN_HIGH = 1;
+  final int GAIN_LOW = 2;
+  final int FREQ_LEFT = 4;
+  final int FREQ_RIGHT = 8;
+  final int TIME_UNTIL_SET = 25;
+ 
+  int tmpFreq;
+  int tmpGain;
+    
+  int toModify;
+  int gMouseX;
+  int gMouseY;
+  int freqStep = 0;
+ 
+  gMouseX = mouseX - graphX();
+  gMouseY = mouseY - graphY();
+ 
+  toModify = NOTHING;
+ 
+  // Centre of graph horizontal is for incr/decr GAIN top/bottom
+  //
+  if ( abs( gMouseX - graphWidth()/2 ) < graphWidth()/4 ) {    
+    // println ("Middle COLUMN");
+    
+    // Top or bottom ?
+    //
+    if ( gMouseY <  graphHeight()/4 ) {
+        toModify = GAIN_HIGH;
+    }
+    else if (  graphHeight() - gMouseY <  graphHeight()/4 ) {
+        toModify = GAIN_LOW;
+    }   
+  }
+ 
+  // Middle of graph's vertical is for incr/decr frequency max/min
+  //
+  if ( abs( gMouseY - graphHeight()/2 ) < graphHeight()/4 ) {
+    // println ("Middle ROW");
+    
+    // Left or Right ?
+    //
+    if ( gMouseX <  graphWidth()/4 && gMouseX > 0 ) {
+        toModify = FREQ_LEFT;
+    }
+    else if (  graphWidth() - gMouseX <  graphWidth()/4 ) {
+        toModify = FREQ_RIGHT;
+    }   
+            
+  }
+ 
+ 
+  tmpFreq = 0;
+  if (toModify > 0 ) {
+       infoText1X = min( max( graphX() +90, mouseX),  graphWidth() + 140 ) ;
+       infoText1Y = max( graphY() +40, mouseY );
+  }
+  if ( stopFreq - startFreq > 50000000 ) freqStep = 10000000; else freqStep = 1000000;
+  
+  switch ( toModify ) {
+   
+    // GAIN ====================
+    //
+     case  GAIN_LOW:
+       tmpGain = (( parseInt(cp5.get(Textfield.class,"scaleMinText").getText()) ) - event.getCount()) ;
+       if (tmpGain < fullScaleMin ) tmpGain = fullScaleMin;
+       if (tmpGain > fullScaleMax ) tmpGain = fullScaleMax-1;
+       if (tmpGain >= scaleMax ) tmpGain = scaleMax - 1;
+       cp5.get(Textfield.class,"scaleMinText").setText(str(tmpGain));
+       infoText = str(tmpGain)  + " db" ;
+       itemToSet = ITEM_GAIN;
+       infoLineY = min(graphY() + graphHeight() + 10,  graphHeight() +graphY() - graphHeight() * (tmpGain - scaleMin) / (scaleMax - scaleMin) ) ;
+
+       timeToSet = TIME_UNTIL_SET;
+     break;
+     
+     case  GAIN_HIGH:
+       tmpGain = (( parseInt(cp5.get(Textfield.class,"scaleMaxText").getText()) ) - event.getCount()) ;
+       if (tmpGain < fullScaleMin ) tmpGain = fullScaleMin + 1;
+       if (tmpGain > fullScaleMax ) tmpGain = fullScaleMax;
+       if (tmpGain <= scaleMin ) tmpGain = scaleMin + 1;
+       cp5.get(Textfield.class,"scaleMaxText").setText(str(tmpGain));
+       itemToSet = ITEM_GAIN;
+       infoText = str(tmpGain)   + " db" ;
+       infoLineY = max( graphY() - 10, graphHeight() +graphY() - graphHeight() * (tmpGain - scaleMin) / (scaleMax - scaleMin) );
+       
+       timeToSet = TIME_UNTIL_SET;
+     break;
+     
+     // FREQUENCY ===================
+     //
+     case  FREQ_LEFT:
+       // tmpObject =  cp5.get(Textfield.class,"startFreqText");
+       tmpFreq = (( parseInt(cp5.get(Textfield.class,"startFreqText").getText()) /freqStep ) - event.getCount() )  * freqStep ;
+       if (tmpFreq < fullRangeMin ) tmpFreq = fullRangeMin;
+       if (tmpFreq > fullRangeMax ) tmpFreq = fullRangeMax;
+       if (tmpFreq >= stopFreq ) tmpFreq = stopFreq - 1000000;
+       cp5.get(Textfield.class,"startFreqText").setText(str(tmpFreq));
+       itemToSet = ITEM_FREQUENCY;
+       infoText = str( tmpFreq / 1000000 )  + " MHz" ;
+       infoLineX =  max( graphX() - 10, graphX() + graphWidth()  * (tmpFreq/1000000 - startFreq/1000000) / (stopFreq/1000000 - startFreq/1000000));
+       
+       timeToSet = TIME_UNTIL_SET;
+     break;
+     
+     case  FREQ_RIGHT:
+       tmpFreq = (( parseInt(cp5.get(Textfield.class,"stopFreqText").getText()) / freqStep) - event.getCount())  * freqStep;
+       if (tmpFreq < fullRangeMin ) tmpFreq = fullRangeMin;
+       if (tmpFreq > fullRangeMax ) tmpFreq = fullRangeMax;
+       if (tmpFreq <= startFreq ) tmpFreq = startFreq + 1000000;
+       cp5.get(Textfield.class,"stopFreqText").setText(str(tmpFreq));
+       itemToSet = ITEM_FREQUENCY;
+       infoText = str( tmpFreq / 1000000 ) + " MHz";
+       infoLineX =  min( graphX() + graphWidth() + 10, graphX() + graphWidth()  * (tmpFreq/1000000 - startFreq/1000000) / (stopFreq/1000000 - startFreq/1000000));
+       
+       timeToSet = TIME_UNTIL_SET;
+     break;
+    
+  }
+
 }
