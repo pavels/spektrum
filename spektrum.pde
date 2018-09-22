@@ -7,6 +7,7 @@ import java.util.*;
 // GRGNCK version 0.6-nck
 // GRGNCK version 0.7-nck
 // GRGNCK version 0.8-nck
+// GRGNCK version 0.9-grg
 
 
 Rtlspektrum spektrumReader;
