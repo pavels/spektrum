@@ -10,7 +10,8 @@ import java.util.*;
 // GRGNCK version 0.7-nck
 // GRGNCK version 0.8-nck
 // GRGNCK version 0.9-grg
-// 
+// GRGNCK version 0.10-grg
+//
 // Changelog 0.9 :
 /*
 
@@ -34,6 +35,9 @@ import java.util.*;
     Modified: Button layout.
     Fixed: Save/Reload settings on exit/start. IMPORTANT : delete the "data" folder from the installation location if you have it.
 
+Changelog 0.10 :
+    Added: Mouse wheel in the centrer of the graph performs symetric zoom in/out
+    
 */
 
 Rtlspektrum spektrumReader;
@@ -58,6 +62,7 @@ int movingCursor = CURSORS.CUR_NONE;
 
 final int ITEM_GAIN = 1;
 final int ITEM_FREQUENCY = 2;
+final int ITEM_ZOOM = 3;
 
 int timeToSet = 1;  // GRGNICK add
 int itemToSet = 0;  // GRGNICK add -- 1 is Gain, 2 is Frequency
@@ -870,6 +875,7 @@ void draw(){
       timeToSet = 0;
       if (itemToSet == ITEM_FREQUENCY) setRange(1);
       if (itemToSet == ITEM_GAIN) setScale(1);
+      if (itemToSet == ITEM_ZOOM) { setScale(1);     setRange(1); }
       
       infoText1X = 0;
   }
@@ -1187,7 +1193,7 @@ void mousePressed(MouseEvent evnt){
     
   }
   else if (mouseButton == RIGHT){
-    int SELECT_THR = 10;
+    int SELECT_THR = 20;
     // Drag cursors
     //
     //  TOP
@@ -1392,15 +1398,20 @@ void mouseWheel(MouseEvent event){
   final int GAIN_LOW = 2;
   final int FREQ_LEFT = 4;
   final int FREQ_RIGHT = 8;
+  final int GRAPH_ZOOM = 16;
   final int TIME_UNTIL_SET = 25;
  
   int tmpFreq;
+  int tmpFreq2;
   int tmpGain;
+  int tmpGain2;
     
   int toModify;
   int gMouseX;
   int gMouseY;
   int freqStep = 0;
+  
+  int scaleFreqOverDb = 0;
  
   gMouseX = mouseX - graphX();
   gMouseY = mouseY - graphY();
@@ -1437,10 +1448,15 @@ void mouseWheel(MouseEvent event){
     }   
             
   }
+  
+  // Middle of graph on X and Y is for zoom
+  //
+  if ( abs( gMouseX - graphWidth()/2 ) < graphWidth()/4  && abs( gMouseY - graphHeight()/2 ) < graphHeight()/4 )
+        toModify = GRAPH_ZOOM ;
  
  
   tmpFreq = 0;
-  if (toModify > 0 ) {
+  if (toModify > 0   ) {
        infoText1X = min( max( graphX() +90, mouseX),  graphWidth() + 140 ) ;
        infoText1Y = max( graphY() +40, mouseY );
   }
@@ -1502,6 +1518,28 @@ void mouseWheel(MouseEvent event){
        infoText = str( tmpFreq / 1000000 ) + " MHz";
        infoLineX =  min( graphX() + graphWidth() + 10, graphX() + graphWidth()  * (tmpFreq/1000000 - startFreq/1000000) / (stopFreq/1000000 - startFreq/1000000));
        
+       timeToSet = TIME_UNTIL_SET;
+     break;
+       
+     case GRAPH_ZOOM:
+       scaleFreqOverDb =  (stopFreq - startFreq) / (scaleMax - scaleMin) ;  // How many Hz for each db
+       tmpGain  = min( max( (( parseInt(cp5.get(Textfield.class,"scaleMinText").getText()) ) - event.getCount()), fullScaleMin), fullScaleMax) ;
+       tmpGain2 = max( min( (( parseInt(cp5.get(Textfield.class,"scaleMaxText").getText()) ) + event.getCount()), fullScaleMax), fullScaleMin) ;
+       if ( tmpGain2 <= tmpGain ) tmpGain2 = tmpGain + 2;
+       cp5.get(Textfield.class,"scaleMinText").setText(str(tmpGain));
+       cp5.get(Textfield.class,"scaleMaxText").setText(str(tmpGain2));
+       
+       tmpFreq  =  min( max( parseInt(cp5.get(Textfield.class,"startFreqText").getText()) - scaleFreqOverDb * event.getCount(),  fullRangeMin ), fullRangeMax )  ;
+       tmpFreq2 =  max( min( parseInt(cp5.get(Textfield.class,"stopFreqText").getText())  + scaleFreqOverDb * event.getCount(),  fullRangeMax ), fullRangeMin )  ;
+       
+       if (tmpFreq >= tmpFreq2) tmpFreq2 = tmpFreq + 10000000;
+       
+       cp5.get(Textfield.class,"startFreqText").setText(str(tmpFreq));
+       cp5.get(Textfield.class,"stopFreqText").setText(str(tmpFreq2));
+       
+       if ( event.getCount() >0 ) infoText = "ZOOM OUT"; else infoText="ZOOM IN";
+       
+       itemToSet = ITEM_ZOOM;
        timeToSet = TIME_UNTIL_SET;
      break;
     
