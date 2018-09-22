@@ -16,7 +16,7 @@ Progress so far
 - Added: Zoom functionality of the cursors's defined area (gain + frequency).
 - Added: _Mouse Wheel_ Frequency limits adjustment on graph (Top area for upper, low area for lower).
 - Added: _Mouse Wheel_ Gain limits adjustment on graph (left area for lower frequency, right for upper).
-- Added: _Mouse wheel_ in the centrer of the graph performs symetric zoom in/out.
+- Added: _Mouse Wheel_ in the centrer of the graph performs symetric zoom in/out.
 - Added: View/settings store/recall (elementary "back" operation, nice for quick zoomed in graph inspection).
 - Added: _Left click_ positions primary cursors.
 - Added: _Left Double Click_ positions primary cursors and moves secondary out of the way.
