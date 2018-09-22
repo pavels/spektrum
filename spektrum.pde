@@ -1070,14 +1070,14 @@ void drawVertCursor(){
   fill(cursorVerticalLeftX_Color);
   line(cursorVerticalLeftX, graphY(), cursorVerticalLeftX, graphY()+graphHeight());
   textAlign(CENTER);
-  text(numToStr(freqLeft/1000)  + " kHz", cursorVerticalLeftX-10, graphY()  - 10);
+  text(numToStr(freqLeft/1000)  + " kHz", cursorVerticalLeftX-10, graphY()  - 5);
   
   // RIGHT
   stroke(cursorVerticalRightX_Color);
   fill(cursorVerticalRightX_Color);
   line(cursorVerticalRightX, graphY(), cursorVerticalRightX, graphY()+graphHeight());
   textAlign(CENTER);
-  text(numToStr(freqRight/1000)  + " kHz", cursorVerticalRightX-10, graphY()  - 10);
+  text(numToStr(freqRight/1000)  + " kHz", cursorVerticalRightX-10, graphY()  - 5);
   
   // BOTTOM
   stroke(cursorHorizontalBottomY_Color);
