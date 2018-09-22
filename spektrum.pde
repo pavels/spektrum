@@ -4,6 +4,8 @@ import java.io.FileWriter;           // added by Dave N 24 Aug 2017
 import java.util.*;
 
 // GRGNCK version 0.5-grg
+// GRGNCK version 0.6-nck
+
 
 Rtlspektrum spektrumReader;
 ControlP5 cp5;
@@ -58,6 +60,14 @@ int tmpFreq = 0;
 int scaleMin = -110;
 int scaleMax = 40;
 
+final int GRAPH_DRAG_NONE = 0;
+final int GRAPH_DRAG_STARTED = 1;
+final int GRAPH_DRAG_ENDED = 0;
+int mouseDragGraph = GRAPH_DRAG_NONE;
+
+int dragGraphStartX;
+int dragGraphStartY;
+  
 int cursorVerticalLeftX = -1;//graphX();
 int cursorVerticalRightX = -1;//(graphX() + graphWidth())*hzPerPixel();
 int cursorHorizontalTopY = -1;//graphY();
@@ -105,6 +115,12 @@ boolean frozen = true;
 boolean vertCursor = false;
 float minMaxTextX = 10;
 float minMaxTextY = 660;
+
+int deltaLabelsX;
+int deltaLabelsY;
+int deltaLabelsXWaiting;
+int deltaLabelsYWaiting;
+
 boolean overGraph = false;
 boolean mouseDragLock = false;
 int startDraggingThr = 5;
@@ -450,7 +466,16 @@ void setupControls(){
     .getCaptionLabel().align(ControlP5.CENTER, ControlP5.CENTER).setText("Exit")
     ;
     
- minMaxTextY = y+50;
+    
+  // Keep the down left position for the Delta label
+  deltaLabelsYWaiting = y + 40;
+  deltaLabelsXWaiting = x;
+  // Use it now
+  deltaLabelsY = deltaLabelsYWaiting;
+  deltaLabelsX = deltaLabelsXWaiting;
+  
+  // Min/Max labels position (Down left)
+  minMaxTextY = height-50;
  
   println("Reached end of setupControls.");
   
@@ -1011,10 +1036,6 @@ void drawVertCursor(){
   textAlign(CENTER);
   text(numToStr(freqRight)  + " Hz", cursorVerticalRightX-10, graphY()  - 10);
   
-  // FREQ DELTA
-  fill(cursorDeltaColor);
-  text("Δf " + numToStr(freqRight - freqLeft)  + " Hz", cursorVerticalLeftX+((cursorVerticalRightX-cursorVerticalLeftX)/2), graphY()  + 12);
-  
   // BOTTOM
   stroke(cursorHorizontalBottomY_Color);
   fill(cursorHorizontalBottomY_Color);
@@ -1029,10 +1050,16 @@ void drawVertCursor(){
   textAlign(CENTER);
   text(numToStr(scaleTop)  + " db", graphX()+graphWidth()+20, cursorHorizontalTopY+4);
   
-  // SCALE DELTA
+  // DELTA  - FREQ / SCALE
+  //
+  textAlign(LEFT);
   fill(cursorDeltaColor);
-  text("Δs " + numToStr(scaleBottom - scaleTop)  + " db", graphX()+graphWidth()-20,    cursorHorizontalTopY+((cursorHorizontalBottomY-cursorHorizontalTopY)/2)    );
-
+  text("Δf " + numToStr(freqRight - freqLeft)  + " Hz" + "\n" +
+       "Δs " + numToStr(scaleBottom - scaleTop)  + " db", deltaLabelsX, deltaLabelsY );
+  //text("Δf " + numToStr(freqRight - freqLeft)  + " Hz", cursorVerticalLeftX+((cursorVerticalRightX-cursorVerticalLeftX)/2), graphY()  + 12);
+  //text("Δs " + numToStr(scaleBottom - scaleTop)  + " db", graphX()+graphWidth()-20,    cursorHorizontalTopY+((cursorHorizontalBottomY-cursorHorizontalTopY)/2)    );
+  
+  
   
 }
 
@@ -1109,48 +1136,11 @@ void mousePressed(MouseEvent evnt){
   }
   else if (mouseButton == CENTER){
     
-    if ( abs(mouseX-cursorVerticalLeftX) <= 5 ){
-      println("CLICK_LEFT");
-      cp5.get(Textfield.class,"startFreqText").setText( str(clickFreq) );
-      sweep( mouseX - graphX(),  #fcf400, 255);
-      cursorVerticalLeftX = mouseX;
-      movingCursor = CURSORS.CUR_X_LEFT;
-      
-    }
-    else if ( abs(mouseX-cursorVerticalRightX) <= 5 ){
-      println("CLICK_RIGHT");
-      cp5.get(Textfield.class,"stopFreqText").setText( str(clickFreq) );
-      sweep( mouseX - graphX(),  #fcd420, 255);
-      cursorVerticalRightX = mouseX;
-      movingCursor = CURSORS.CUR_X_RIGHT;
-      
-    }
+    mouseDragGraph = GRAPH_DRAG_STARTED;
     
-    /*
-    if (CLICK_LEFT){
-      println("CLICK_LEFT");
-      cp5.get(Textfield.class,"startFreqText").setText( str(clickFreq) );
-      sweep( mouseX - graphX(),  #fcf400, 255);
-      cursorVerticalLeftX = mouseX;
-      movingCursor = CURSORS.CUR_X_LEFT;
-      
-    }
-    else{
-      println("CLICK_RIGHT");
-      cp5.get(Textfield.class,"stopFreqText").setText( str(clickFreq) );
-      sweep( mouseX - graphX(),  #fcd420, 255);
-      cursorVerticalRightX = mouseX;
-      movingCursor = CURSORS.CUR_X_RIGHT;
-      
-    }
-    */
+    dragGraphStartX = mouseX;
+    dragGraphStartY = mouseY;
     
-    // Button color indicating change
-    cp5.get(Button.class,"setRange").setColorBackground( clickMeButtonColor );
-    
-    //    setVertCursor();
-    // drawVertCursor();
-
     
   }
   else if (mouseButton == RIGHT){
@@ -1170,24 +1160,6 @@ void mousePressed(MouseEvent evnt){
       cursorHorizontalBottomY = mouseY;
       movingCursor = CURSORS.CUR_Y_BOTTOM;
     }
-    
-    /*
-    if (CLICK_ABOVE){
-      println("CLICK_ABOVE " + clickScale);
-      cp5.get(Textfield.class,"scaleMaxText").setText(str(clickScale));
-      sweepVertical( mouseY - graphY(),  #fcd420, 255);
-      cursorHorizontalTopY = mouseY;
-      movingCursor = CURSORS.CUR_Y_TOP;
-      
-    }
-    else{
-      println("CLICK_DOWN" + clickScale);
-      cp5.get(Textfield.class,"scaleMinText").setText(str(clickScale));
-      sweepVertical( mouseY - graphY(),  #fcd420, 255);
-      cursorHorizontalBottomY = mouseY;
-      movingCursor = CURSORS.CUR_Y_BOTTOM;
-    }
-    */
     
     // Button color indicating change
     cp5.get(Button.class,"setScale").setColorBackground( clickMeButtonColor );
@@ -1213,6 +1185,10 @@ void mouseDragged(){
     if ( ( abs(cursorVerticalLeftX - mouseX) > startDraggingThr ) || ( abs(cursorHorizontalBottomY - mouseY) > startDraggingThr ) ){
       cursorVerticalRightX = mouseX;
       cursorHorizontalTopY = mouseY;
+      
+      deltaLabelsX = mouseX-30;
+      deltaLabelsY = mouseY-25;
+      
     }
     
   }
@@ -1246,8 +1222,15 @@ void mouseDragged(){
       cp5.get(Textfield.class,"scaleMinText").setText(str(clickScale));
     }
   }
-  stroke(#606060);
-  line( cursorVerticalLeftX, cursorHorizontalBottomY,   mouseX, mouseY) ;
+  
+  if (mouseButton == LEFT){
+    stroke(#606060);
+    line( cursorVerticalLeftX, cursorHorizontalBottomY,   mouseX, mouseY) ;
+  }
+  else if (mouseButton == CENTER){
+    stroke(#606060);
+    line( dragGraphStartX, dragGraphStartY,   mouseX, mouseY) ;
+  }
   
 }
 
@@ -1256,6 +1239,72 @@ void mouseReleased(){
   lastMouseX = 0;
     
   movingCursor = CURSORS.CUR_NONE;
+  
+  
+  deltaLabelsX = deltaLabelsXWaiting;
+  deltaLabelsY = deltaLabelsYWaiting;
+  
+  // Move graph
+  if (mouseDragGraph == GRAPH_DRAG_STARTED) {
+    mouseDragGraph = GRAPH_DRAG_NONE;
+    
+    int deltaF;
+    int deltaDB;
+    int freqLeft;
+    int freqRight;
+    freqLeft = startFreq + hzPerPixel() * (dragGraphStartX - graphX());
+    freqRight = startFreq + hzPerPixel() * (mouseX - graphX());
+    int scaleBottom;
+    int scaleTop;
+    scaleBottom = scaleMax - ( ( (dragGraphStartY - graphY()) * gainPerPixel() ) / 1000 );
+    scaleTop = scaleMax - ( ( (mouseY - graphY()) * gainPerPixel() ) / 1000 );
+
+    
+    deltaF = freqRight - freqLeft ;
+    deltaDB = scaleBottom - scaleTop;
+    
+    // Move graph up/down
+    if (deltaDB != 0){
+      scaleMin += deltaDB;
+      scaleMax += deltaDB;
+      
+      // Protections
+      if (scaleMin < fullScaleMin) {scaleMin = fullScaleMin;}
+      if (scaleMin > fullScaleMax) {scaleMin = fullScaleMin;}
+      if (scaleMax < fullScaleMin) {scaleMax = fullScaleMin;}
+      if (scaleMax > fullScaleMax) {scaleMax = fullScaleMax;}
+      
+      // Set new scales
+      cp5.get(Textfield.class,"scaleMinText").setText( str(scaleMin) );
+      cp5.get(Textfield.class,"scaleMaxText").setText( str(scaleMax) );
+  
+      setScale(1);
+      println("deltaDB: " + numToStr(deltaDB) + ", -New Scale: \n" + "  LOWER:" + numToStr(scaleMin) + ",  UPPER:" + numToStr(scaleMax) );
+    }
+    
+    // Move graph right/left
+    if (abs(deltaF) > 10){
+      startFreq -= deltaF;
+      stopFreq -= deltaF;
+      
+      // Protections
+      if (startFreq < fullRangeMin) {startFreq = fullRangeMin;}
+      if (startFreq > fullRangeMax) {startFreq = fullRangeMax;}
+      if (stopFreq < fullRangeMin) {stopFreq = fullRangeMin;}
+      if (stopFreq > fullRangeMax) {stopFreq = fullRangeMax;}
+      
+      // Set new scales
+      cp5.get(Textfield.class,"startFreqText").setText( str(startFreq) );
+      cp5.get(Textfield.class,"stopFreqText").setText( str(stopFreq) );
+      
+      println("deltaF: " + numToStr(deltaF) + ", -New Freq: \n" + "  START:" + numToStr(startFreq) + ",  STOP:" + numToStr(stopFreq) );
+      
+      setRange(1);
+    }
+    
+    
+  }
+  
 }
 
 
