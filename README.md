@@ -1,8 +1,9 @@
 spektrum
 ==========
-
 UI improvements by SV1SGK and SV8ARJ. W.I.P.
-In the works : 
+
+Goals : 
+-------
 - 2 Cursors for Frequency axis (Dragable on graph with Right mouse button)
 - 2 Cursors for Amplitude axis (Dragable on graph with Right mouse button)
 - Absolute and differential measurements with cursors (Left mouse button, Single clik and/or drag)
@@ -15,6 +16,37 @@ In the works :
 Soon with you.
 
 73's from Nick and George.
+
+Progress so far 
+---------------
+- Added: 2 Cursors for Frequency axis.
+- Added: 2 Cursors for Amplitude axis.
+- Added: Absolute and differential measurements with cursors.
+- Added: Zoom functionality of the cursors's defined area (gain + frequency).
+- Added: _Mouse Wheel_ Frequency limits adjustment on graph (Top area for upper, low area for lower).
+- Added: _Mouse Wheel_ Gain limits adjustment on graph (left area for lower frequency, right for upper).
+- Added: View/settings store/recall (elementary "back" operation, nice for quick zoomed in graph inspection).
+- Added: _Left click_ positions primary cursors.
+- Added: _Left Double click_ positions primary cursors and moves secondary out of the way.
+- Added: _Right Double click_ zooms area defined by cursors (Amplitude + frequency).
+- Added: _Middle (mouse wheel) Double click_ resets full scale for Amplitude and Frequency.
+- Added: Reset buttons to Min/Max range next to Start and Stop frequency text boxes.
+- Modified: Cursors on/off now operate on all 4 cursors.
+- Added: ZOOM and BACK buttons.
+- Added: Display of frequency, Amplitude and differences for all cursors.
+- Modified: Button layout.
+
+User interface: | Mouse wheel - 4 areas for limits adjustment 
+:-------------------------: | :-------------------------:
+![ Dual Cursor set ](https://github.com/SV8ARJ/spektrum/blob/master/screenshots/DefiningAreaWithCursors01.png) |![Double right click or ZOOM button ](https://github.com/SV8ARJ/spektrum/blob/master/screenshots/ChangingLowLimit.png)
+
+The zoom area and measurements with cursors: | Zoomed in area 
+:-------------------------: | :-------------------------:
+![ Dual Cursor set ](https://github.com/SV8ARJ/spektrum/blob/master/screenshots/ZoomArea01.png) |![Double right click or ZOOM button ](https://github.com/SV8ARJ/spektrum/blob/master/screenshots/ZoomArea02.png)
+
+
+Original readme starts here:
+----------------------------
 
 
 
