@@ -47,6 +47,10 @@ The zoom area and measurements with cursors: | Zoomed in area
 :-------------------------: | :-------------------------:
 ![ Dual Cursor set ](https://github.com/SV8ARJ/spektrum/blob/master/screenshots/ZoomArea01.png) |![Double right click or ZOOM button ](https://github.com/SV8ARJ/spektrum/blob/master/screenshots/ZoomArea02.png)
 
+Drag graph with middle mouse button: | Area of interest centered 
+:-------------------------: | :-------------------------:
+![ Graph is not centered ](https://github.com/SV8ARJ/spektrum/blob/master/screenshots/moving01.png) |![After drag ](https://github.com/SV8ARJ/spektrum/blob/master/screenshots/moving02.png)
+
 
 
 
