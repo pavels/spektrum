@@ -5,6 +5,8 @@ import java.util.*;
 
 // GRGNCK version 0.5-grg
 // GRGNCK version 0.6-nck
+// GRGNCK version 0.7-nck
+// GRGNCK version 0.8-nck
 
 
 Rtlspektrum spektrumReader;
@@ -12,8 +14,8 @@ ControlP5 cp5;
 
 boolean startingupBypassSaveConfiguration = true;
 
-
-
+int reloadConfigurationAfterStartUp = 0;// This will be set at the end of the startup
+int CONFIG_RELOAD_DELAY = 10;
 
 interface  CURSORS {
   int
@@ -468,8 +470,8 @@ void setupControls(){
     
     
   // Keep the down left position for the Delta label
-  deltaLabelsYWaiting = y + 40;
-  deltaLabelsXWaiting = x;
+  deltaLabelsYWaiting = y + 60;
+  deltaLabelsXWaiting = x + 10;
   // Use it now
   deltaLabelsY = deltaLabelsYWaiting;
   deltaLabelsX = deltaLabelsXWaiting;
@@ -694,6 +696,9 @@ void setup(){
   
   setupStartControls();
   println("Reached end of setup.");
+  
+  reloadConfigurationAfterStartUp = CONFIG_RELOAD_DELAY;//Reload configuration after this time 
+  
 }
 
 void stop(){
@@ -843,7 +848,18 @@ void draw(){
   }
   
   
-  
+  // ==== Reload configuration after start up
+  //
+  if (reloadConfigurationAfterStartUp > 1){
+    reloadConfigurationAfterStartUp--;
+  }
+  else if (reloadConfigurationAfterStartUp == 1){
+    reloadConfigurationAfterStartUp = 0;
+    loadConfig();
+    setScale(1);
+    setRange(1);
+    println("Reload Config!");
+  }
   
   
   
@@ -1017,49 +1033,49 @@ void drawVertCursor(){
   int freqRight;
   freqLeft = startFreq + hzPerPixel() * (cursorVerticalLeftX - graphX());
   freqRight = startFreq + hzPerPixel() * (cursorVerticalRightX - graphX());
-  int scaleBottom;
-  int scaleTop;
-  scaleBottom = scaleMax - ( ( (cursorHorizontalBottomY - graphY()) * gainPerPixel() ) / 1000 );
-  scaleTop = scaleMax - ( ( (cursorHorizontalTopY - graphY()) * gainPerPixel() ) / 1000 );
-  
+  float scaleBottom;
+  float scaleTop;
+  scaleBottom = scaleMax - ( ( (cursorHorizontalBottomY - graphY()) * gainPerPixel() ) / 1000.0 );
+  scaleTop = scaleMax - ( ( (cursorHorizontalTopY - graphY()) * gainPerPixel() ) / 1000.0 );
+  textSize(16);
   // LEFT
   stroke(cursorVerticalLeftX_Color);
   fill(cursorVerticalLeftX_Color);
   line(cursorVerticalLeftX, graphY(), cursorVerticalLeftX, graphY()+graphHeight());
   textAlign(CENTER);
-  text(numToStr(freqLeft)  + " Hz", cursorVerticalLeftX-10, graphY()  - 10);
+  text(numToStr(freqLeft/1000)  + " kHz", cursorVerticalLeftX-10, graphY()  - 10);
   
   // RIGHT
   stroke(cursorVerticalRightX_Color);
   fill(cursorVerticalRightX_Color);
   line(cursorVerticalRightX, graphY(), cursorVerticalRightX, graphY()+graphHeight());
   textAlign(CENTER);
-  text(numToStr(freqRight)  + " Hz", cursorVerticalRightX-10, graphY()  - 10);
+  text(numToStr(freqRight/1000)  + " kHz", cursorVerticalRightX-10, graphY()  - 10);
   
   // BOTTOM
   stroke(cursorHorizontalBottomY_Color);
   fill(cursorHorizontalBottomY_Color);
   line(graphX(), cursorHorizontalBottomY, graphX()+graphWidth(), cursorHorizontalBottomY);
   textAlign(CENTER);
-  text(numToStr(scaleBottom)  + " db", graphX()+graphWidth()+20, cursorHorizontalBottomY+4);
+  text(     String.format("%.1f",scaleBottom)  + " db", graphX()+graphWidth()+20, cursorHorizontalBottomY+4);
   
   // TOP
   stroke(cursorHorizontalTopY_Color);
   fill(cursorHorizontalTopY_Color);
   line(graphX(), cursorHorizontalTopY, graphX()+graphWidth(), cursorHorizontalTopY);
   textAlign(CENTER);
-  text(numToStr(scaleTop)  + " db", graphX()+graphWidth()+20, cursorHorizontalTopY+4);
+  text(String.format("%.1f",scaleTop)  + " db", graphX()+graphWidth()+20, cursorHorizontalTopY+4);
   
   // DELTA  - FREQ / SCALE
   //
   textAlign(LEFT);
   fill(cursorDeltaColor);
-  text("Δf " + numToStr(freqRight - freqLeft)  + " Hz" + "\n" +
-       "Δs " + numToStr(scaleBottom - scaleTop)  + " db", deltaLabelsX, deltaLabelsY );
+  text("Δx : " + numToStr((freqRight - freqLeft)/1000)  + " kHz" + "\n" +
+       "Δy : " + String.format("%.1f",scaleBottom - scaleTop)  + " db", deltaLabelsX, deltaLabelsY );
   //text("Δf " + numToStr(freqRight - freqLeft)  + " Hz", cursorVerticalLeftX+((cursorVerticalRightX-cursorVerticalLeftX)/2), graphY()  + 12);
   //text("Δs " + numToStr(scaleBottom - scaleTop)  + " db", graphX()+graphWidth()-20,    cursorHorizontalTopY+((cursorHorizontalBottomY-cursorHorizontalTopY)/2)    );
   
-  
+  textSize(12);
   
 }
 
@@ -1144,25 +1160,60 @@ void mousePressed(MouseEvent evnt){
     
   }
   else if (mouseButton == RIGHT){
-    
-    if ( abs(mouseY-cursorHorizontalTopY) <= 5 ){
-      println("CLICK_ABOVE " + clickScale);
+    int SELECT_THR = 10;
+    // Drag cursors
+    //
+    //  TOP
+    if ( abs(mouseY-cursorHorizontalTopY) <= SELECT_THR ){
+      println("TOP LINE");
+      println("clickScale: " + clickScale);
       cp5.get(Textfield.class,"scaleMaxText").setText(str(clickScale));
       sweepVertical( mouseY - graphY(),  #fcd420, 255);
       cursorHorizontalTopY = mouseY;
       movingCursor = CURSORS.CUR_Y_TOP;
       
+      // Button color indicating change
+      cp5.get(Button.class,"setScale").setColorBackground( clickMeButtonColor );
+      
     }
-    else if ( abs(mouseY-cursorHorizontalBottomY) <= 5 ){
-      println("CLICK_DOWN" + clickScale);
+    //  BOTTOM
+    else if ( abs(mouseY-cursorHorizontalBottomY) <= SELECT_THR ){
+      println("BOTTOM LINE");
+      println("clickScale: " + clickScale);
       cp5.get(Textfield.class,"scaleMinText").setText(str(clickScale));
       sweepVertical( mouseY - graphY(),  #fcd420, 255);
       cursorHorizontalBottomY = mouseY;
       movingCursor = CURSORS.CUR_Y_BOTTOM;
+      
+      // Button color indicating change
+      cp5.get(Button.class,"setScale").setColorBackground( clickMeButtonColor );
+    }
+    // LEFT
+    else if ( abs(mouseX-cursorVerticalLeftX) <= SELECT_THR ){
+      println("LEFT LINE");
+      println("clickFreq: " + clickFreq);
+      cp5.get(Textfield.class,"startFreqText").setText(str(clickScale));
+      sweep( mouseX - graphX(),  #fcd420, 255);
+      cursorVerticalLeftX = mouseX;
+      movingCursor = CURSORS.CUR_X_LEFT;
+      
+      // Button color indicating change
+      cp5.get(Button.class,"setRange").setColorBackground( clickMeButtonColor );
+      
+    }
+    // RIGHT
+    else if ( abs(mouseX-cursorVerticalRightX) <= SELECT_THR ){
+      println("RIGHT LINE");
+      println("clickFreq: " + clickFreq);
+      cp5.get(Textfield.class,"stopFreqText").setText(str(clickScale));
+      sweep( mouseX - graphX(),  #fcd420, 255);
+      cursorVerticalRightX = mouseX;
+      movingCursor = CURSORS.CUR_X_RIGHT;
+      
+      // Button color indicating change
+      cp5.get(Button.class,"setRange").setColorBackground( clickMeButtonColor );
     }
     
-    // Button color indicating change
-    cp5.get(Button.class,"setScale").setColorBackground( clickMeButtonColor );
     
   }
   
@@ -1187,7 +1238,7 @@ void mouseDragged(){
       cursorHorizontalTopY = mouseY;
       
       deltaLabelsX = mouseX-30;
-      deltaLabelsY = mouseY-25;
+      deltaLabelsY = mouseY-29;
       
     }
     
