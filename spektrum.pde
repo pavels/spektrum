@@ -3,12 +3,38 @@ import rtlspektrum.Rtlspektrum;
 import java.io.FileWriter;           // added by Dave N 24 Aug 2017
 import java.util.*;
 
+// The spektrum:: the SV mods -- SV1SGK and SV8ARJ UI improvements.
+// 
 // GRGNCK version 0.5-grg
 // GRGNCK version 0.6-nck
 // GRGNCK version 0.7-nck
 // GRGNCK version 0.8-nck
 // GRGNCK version 0.9-grg
+// 
+// Changelog 0.9 :
+/*
 
+    Added: 2 Cursors for Frequency axis.
+    Added: 2 Cursors for Amplitude axis.
+    Added: Absolute and differential measurements with cursors.
+    Added: Zoom functionality of the cursors's defined area (gain + frequency).
+    Added: Mouse Wheel Frequency limits adjustment on graph (Top area for upper, low area for lower).
+    Added: Mouse Wheel Gain limits adjustment on graph (left area for lower frequency, right for upper).
+    Added: View/settings store/recall (elementary "back" operation, nice for quick zoomed in graph inspection).
+    Added: Left click positions primary cursors.
+    Added: Left Double Click positions primary cursors and moves secondary out of the way.
+    Added: Right Double Click zooms area defined by cursors (Amplitude + frequency).
+    Added: Right mouse Click and Drag on a cursor moves the cursor.
+    Added: Middle (mouse wheel) Double Click resets full scale for Amplitude and Frequency.
+    Added: Middle (mouse wheel) Click and Drag, moves the graph recalculating limits accordingly.
+    Added: Reset buttons to Min/Max range next to Start and Stop frequency text boxes.
+    Modified: Cursors on/off now operate on all 4 cursors.
+    Added: ZOOM and BACK buttons.
+    Added: Display of frequency, Amplitude and differences for all cursors.
+    Modified: Button layout.
+    Fixed: Save/Reload settings on exit/start. IMPORTANT : delete the "data" folder from the installation location if you have it.
+
+*/
 
 Rtlspektrum spektrumReader;
 ControlP5 cp5;
@@ -56,7 +82,7 @@ int fullScaleMax = 40;
 int startFreq = 88000000;
 int stopFreq = 108000000;
 int binStep = 1000;
-int binStepProtection = 100;
+int binStepProtection = 200;
 int vertCursorFreq = 88000000;
 int tmpFreq = 0;
 
