@@ -30,9 +30,18 @@ void graphDrawLine(int x1, int y1, int x2, int y2, int lineColor, float alpha) {
     ellipse(x2 + graphX(), graphHeight() - y2 + graphY(),1,1);
   }
   else {
-    line(x1 + graphX(), graphHeight() - y1 + graphY(), x2 + graphX(), graphHeight() - y2 + graphY());
+    line(x1 + graphX(), graphHeight() - y1 + graphY(), x2 + graphX(), graphHeight() - y2 + graphY());    
   }
 }
+
+void graphDrawFill(int x1, int y1, int x2, int y2, int lineColor, float alpha) {
+  // this rtn draws the frequency trace on the screen ===========
+  stroke(lineColor, alpha);
+  quad( x1 + graphX(), graphHeight() - y1 + graphY(),       x2 + graphX(), graphHeight() - y2 + graphY() ,
+        x2 + graphX(), graphY() + graphHeight(),            x1 + graphX(), graphY() + graphHeight()              );      
+  
+}
+
 
 void drawGraphMatt(double minValue, double maxValue, int minFreq, int maxFreq) {
   // This rtn draws the grid on the screen ======================
