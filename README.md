@@ -1,5 +1,5 @@
-#spektrum
-==========
+# spektrum
+
 ### "The SV mod" - UI improvements by SV1SGK and SV8ARJ. W.I.P.
 
 Down latest test build from [here](https://www.dropbox.com/s/g6bm7akhvo6bs46/spektrum-SVmod-v0.11.zip?dl=0).
