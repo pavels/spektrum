@@ -4,8 +4,8 @@
 
 Download the latest test build from [here](https://www.dropbox.com/s/g6bm7akhvo6bs46/spektrum-SVmod-v0.11.zip?dl=0).
 -------
-Please report bugs/comments before our pull request.
-
+Please report bugs/comments before our pull request. The rtlsdr.dll and rtlpower.dll included (in the lib folder) are from previous version. Latest versions (also included but renamed to ****.dll-latest) where giving us a grey screen (not working). YMMV.
+ 
 Goals : 
 -------
 To make an excellent utility easy to use.
