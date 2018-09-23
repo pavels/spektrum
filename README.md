@@ -18,10 +18,10 @@ Progress so far
 - Added: _Mouse Wheel_ Gain limits adjustment on graph (left area for lower frequency, right for upper).
 - Added: _Mouse Wheel_ in the centrer of the graph performs symetric zoom in/out.
 - Added: View/settings store/recall (elementary "back" operation, nice for quick zoomed in graph inspection).
-- Added: _Left click_ positions primary cursors.
-- Added: _Left Double Click_ positions primary cursors and moves secondary out of the way.
-- Added: _Right Double Click_ zooms area defined by cursors (Amplitude + frequency).
-- Added: _Right mouse Click and Drag_ on a cursor moves the cursor.
+- Added: _Right click_ positions primary cursors.
+- Added: _Right Double Click_ positions primary cursors and moves secondary out of the way.
+- Added: _Left Double Click_ zooms area defined by cursors (Amplitude + frequency).
+- Added: _Left Mouse Click and Drag_ on a cursor moves the cursor.
 - Added: _Middle (mouse wheel) Double Click_ resets full scale for Amplitude and Frequency.
 - Added: _Middle (mouse wheel) Click and Drag_, moves the graph recalculating limits accordingly.
 - Added: Reset buttons to Min/Max range next to Start and Stop frequency text boxes.
@@ -30,10 +30,16 @@ Progress so far
 - Added: Display of frequency, Amplitude and differences for all cursors.
 - Modified: Button layout.
 - Fixed: Save/Reload settings on exit/start. IMPORTANT : delete the "data" folder from the installation location if you have it.
+- Added: Filling in graph option (line or area).
 
-User interface: | Mouse wheel close to graph edges adjusts limits 
+
+Rearranged User interface: | Area/Line option 
 :-------------------------: | :-------------------------:
-![ Dual Cursor set ](https://github.com/SV8ARJ/spektrum/blob/master/screenshots/DefiningAreaWithCursors01.png) |![Double right click or ZOOM button ](https://github.com/SV8ARJ/spektrum/blob/master/screenshots/ChangingLowLimit.png)
+![ Lates UI ](https://github.com/SV8ARJ/spektrum/blob/master/screenshots/filledGraphNot.png) |![Area graph option ](https://github.com/SV8ARJ/spektrum/blob/master/screenshots/FilledGraph.png)
+
+Mouse wheel zoom from middle of graph: | Mouse wheel close to graph edges adjusts limits 
+:-------------------------: | :-------------------------:
+![ Mouse wheel zoom ](https://github.com/SV8ARJ/spektrum/blob/master/screenshots/zoomBox.png) |![Double right click or ZOOM button ](https://github.com/SV8ARJ/spektrum/blob/master/screenshots/ChangingLowLimit.png)
 
 The zoom area and measurements with cursors: | Zoomed in area 
 :-------------------------: | :-------------------------:
