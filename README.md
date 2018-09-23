@@ -1,6 +1,6 @@
 spektrum
 ==========
-**UI improvements by SV1SGK and SV8ARJ. W.I.P.**
+**"The SV mod" - UI improvements by SV1SGK and SV8ARJ. W.I.P.**
 
 Goals : 
 -------
