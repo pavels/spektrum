@@ -25,6 +25,7 @@ Progress so far
 - Added: View/settings store/recall (elementary "back" operation, nice for quick zoomed in graph inspection).
 - Added: _Right click_ positions primary cursors.
 - Added: _Right Double Click_ positions primary cursors and moves secondary out of the way.
+- Added: _Right Click and Drag_ defines area using primary and secondary cursors, also interactive Delta measurements.
 - Added: _Left Double Click_ zooms area defined by cursors (Amplitude + frequency).
 - Added: _Left Mouse Click and Drag_ on a cursor moves the cursor.
 - Added: _Middle (mouse wheel) Double Click_ resets full scale for Amplitude and Frequency.
