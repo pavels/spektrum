@@ -4,7 +4,7 @@
 
 Download the latest test build (v0.11_23-SEP-18) from [here](https://www.dropbox.com/s/g6bm7akhvo6bs46/spektrum-SVmod-v0.11.zip?dl=0).
 -------
-- Please report bugs/comments before our pull request. The rtlsdr.dll and rtlpower.dll included (in the lib folder) are from previous version. Latest versions (also included but renamed to ****.dll-latest) were giving us a grey screen (not working). YMMV.
+- Please report bugs/comments before our pull request. The rtlsdr.dll and rtlpower.dll included (in the lib folder) are from previous version of spektrum (v1.0.2). Latest versions (also included but renamed to ****.dll-latest) were giving us a grey screen (not working). YMMV.
 - If you get an error after selecting device see [this](https://github.com/SV8ARJ/spektrum/issues/1).
 
 Goals : 
