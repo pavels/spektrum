@@ -10,7 +10,6 @@ If you get an error after selecting device see [this](https://github.com/SV8ARJ/
 Goals : 
 -------
 To make an excellent utility easy to use.
-Soon with you.
 73's from Nick and George.
 
 Progress so far 
