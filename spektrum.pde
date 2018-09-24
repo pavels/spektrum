@@ -12,6 +12,7 @@ import java.util.*;
 // GRGNCK version 0.9-grg
 // GRGNCK version 0.10-grg
 // GRGNCK version 0.11-grg
+// GRGNCK version 0.12-grg
 // Changelog : 
 /*
 v0.9
@@ -51,6 +52,9 @@ v0.11
     - _MWHeel Up/Down_ : On middle of graph area zooms in/out the graph by symetrically changing all four limits
     Added: Mouse Wheel zoom is pre-shown by rectangle on graph.
     Added: Fill or Line for graph.
+v0.12
+    - Added: VSWR calculation for the antenna tunning guys.
+    - Added: Reference graph (Save a graph in memory and have on screen for comparisons).
 */
 
 Rtlspektrum spektrumReader;
@@ -173,12 +177,18 @@ boolean overGraph = false;
 boolean mouseDragLock = false;
 int startDraggingThr = 5;
 int lastMouseX;
-color buttonColor = color(127,127,127);
+color buttonColor = color(80,80,80);
 color setButtonColor = color(127,0,0);
 color clickMeButtonColor = color(20,200,20); 
 boolean drawSampleToggle=false;
 boolean vertCursorToggle=true;
 boolean drawFill=false;
+
+boolean refShow = false;	// If the reference graph is shown on screen
+boolean refStoreFlag = false; // Used to flag a save in draw()
+DataPoint[] refArray ; // Storage of reference graph
+boolean refArrayHasData = false;
+
 //=========================
 
 void MsgBox( String Msg, String Title ){
@@ -232,6 +242,8 @@ void setupControls(){
     ;
  
 
+  // --------------------------------------------------------------------
+  //  
   y += 40;
 
   cp5.addTextfield("stopFreqText")
@@ -252,30 +264,8 @@ void setupControls(){
     
 
 
-
-  // GRG   
-/*  y += 30;
-
-  
-  cp5.addButton("setMinFreq")
-    .setValue(0)
-    .setPosition(x+width/4, y)
-    .setSize(width/4, 20)
-    .setColorBackground(buttonColor)
-    .getCaptionLabel().align(ControlP5.CENTER, ControlP5.CENTER).setText("S.Min")
-    ;    
-        
- cp5.addButton("setMaxFreq")
-    .setValue(0)
-    .setPosition(x+width/2, y)
-    .setSize(width/4, 20)
-    .setColorBackground(buttonColor)
-    .getCaptionLabel().align(ControlP5.CENTER, ControlP5.CENTER).setText("S.Max")
-    ; 
-
-*/
-
-  
+  // --------------------------------------------------------------------
+  //  
   y += 40;
   
   cp5.addTextfield("binStepText")
@@ -286,67 +276,9 @@ void setupControls(){
     .getCaptionLabel().align(ControlP5.LEFT, ControlP5.TOP_OUTSIDE).setText("Bin size [Hz]")
     ;
     
-
-     
-/*RED-C-REM
-  y += 40;
   
-  cp5.addTextfield("vertCursorFreqText")
-    .setPosition(x, y)
-    .setSize((width - 10)/2, 20)
-    .setText(str(vertCursorFreq))
-    .setAutoClear(false)
-    .getCaptionLabel().align(ControlP5.LEFT, ControlP5.TOP_OUTSIDE).setText("Red Cursor")  
-    ;
-    
-    
-  // toggle vertical sursor on or off
-  cp5.addToggle("vertCursorToggle")
-   .setPosition((width - 10)/2 + 50,y)
-   .setSize(20,20)
-   .getCaptionLabel().align(ControlP5.LEFT, ControlP5.TOP_OUTSIDE).setText("On/Off")
-   ;
-    */
-   
-   
-   ///////<
-   /*  
-  y += 30;
-  
-  cp5.addButton("resetMin")
-    //.setValue(0)
-    .setPosition(x, y)
-    .setSize(40, 20)
-    .setColorBackground(buttonColor)
-    .getCaptionLabel().align(ControlP5.CENTER, ControlP5.CENTER).setText("|<< RST")
-    ; 
-  
-  cp5.addButton("setMin")
-    //.setValue(0)
-    .setPosition(x+42, y)
-    .setSize(40, 20)
-    .setColorBackground(setButtonColor)
-    .getCaptionLabel().align(ControlP5.CENTER, ControlP5.CENTER).setText("Min")
-    ;      
-        
- cp5.addButton("setMax")
-    //.setValue(0)
-    .setPosition(x+42+42, y)
-    .setSize(40, 20)
-    .setColorBackground(setButtonColor)
-    .getCaptionLabel().align(ControlP5.CENTER, ControlP5.CENTER).setText("Max")
-    ;  
-        
- cp5.addButton("resetMax")
-    //.setValue(0)
-    .setPosition(x+42+42+42, y)
-    .setSize(40, 20)
-    .setColorBackground(buttonColor)
-    .getCaptionLabel().align(ControlP5.CENTER, ControlP5.CENTER).setText("RST >>|")
-    ; 
-   */
-   ///////>
-   
+  // --------------------------------------------------------------------
+  //  
   y += 30;
 
   cp5.addButton("setRange")
@@ -360,6 +292,8 @@ void setupControls(){
     
 
 
+  // --------------------------------------------------------------------
+  //  
   y += 50;
 
   cp5.addTextfield("scaleMinText")
@@ -378,7 +312,8 @@ void setupControls(){
     .getCaptionLabel().align(ControlP5.LEFT, ControlP5.TOP_OUTSIDE).setText("Upper")
     ;
 
-  
+  // --------------------------------------------------------------------
+  //  
   y += 30;
 
   cp5.addButton("setScale")
@@ -390,6 +325,8 @@ void setupControls(){
     ;
     
     
+  // --------------------------------------------------------------------
+  //  
   y += 30;
   
   cp5.addButton("autoScale")
@@ -408,7 +345,8 @@ void setupControls(){
     ;
     
  
- // --------------------------------------------------------------------
+  // --------------------------------------------------------------------
+  //  
   y += 40;
   
   // toggle vertical sursor on or off
@@ -431,7 +369,9 @@ void setupControls(){
      .setSize(20,20)
      .getCaptionLabel().align(ControlP5.CENTER, ControlP5.TOP_OUTSIDE).setText("Filled Graph")
      ; 
- // -----------------------------------------------------------------------   
+
+  // --------------------------------------------------------------------
+  //  
   y += 40;
   
   cp5.addToggle("offsetToggle")
@@ -454,20 +394,25 @@ void setupControls(){
      .setValue(false)
      .getCaptionLabel().align(ControlP5.LEFT, ControlP5.TOP_OUTSIDE).setText("Sweep")
      ;  
-  //------------------------------------------------------------------------  
+
+  // --------------------------------------------------------------------
+  //  
   y += 30;
   
   cp5.addTextlabel("label")
-                    .setText("GAIN")
-                    .setPosition(x, y);
-  
+	.setText("GAIN")
+	.setPosition(x, y)
+	.setSize(20,20);
+
+  // --------------------------------------------------------------------
+  //  
   y += 15;
   
   gainDropdown = cp5.addDropdownList("gainDropdown")
                     .setBarHeight(20)
                     .setItemHeight(20)
                     .setPosition(x, y)
-                    .setSize(width, 80)
+                    .setSize(40, 80)
                     ;
   
   gainDropdown.getCaptionLabel().align(ControlP5.LEFT, ControlP5.TOP_OUTSIDE).setText("");
@@ -479,6 +424,25 @@ void setupControls(){
   //gainDropdown.setValue(0);
   gainDropdown.getCaptionLabel().align(ControlP5.LEFT, ControlP5.TOP_OUTSIDE).setText(str(gains[0]));
  
+ 
+ 
+   cp5.addToggle("refShow")
+     .setPosition(x + 60, y)
+     .setSize(20,20)
+     .setValue(false)
+     .getCaptionLabel().align(ControlP5.LEFT, ControlP5.TOP_OUTSIDE).setText("Show reference")
+     ;
+ 
+   cp5.addButton("refSave")
+    .setPosition(x+width/2+5, y)
+    .setSize(width/2-5, 20)
+    .setColorBackground(buttonColor)
+    .getCaptionLabel().align(ControlP5.CENTER, ControlP5.CENTER).setText("Save Reference")
+    ;
+ 
+ 
+  // --------------------------------------------------------------------
+  //  
   y += 100;  
   
   cp5.addButton("zoomBack")
@@ -496,6 +460,8 @@ void setupControls(){
     ;
 
 
+  // --------------------------------------------------------------------
+  //  
   y += 30;
   
   cp5.addButton("toggleRelMode")
@@ -506,6 +472,8 @@ void setupControls(){
     .getCaptionLabel().align(ControlP5.CENTER, ControlP5.CENTER).setText("Relative mode")
     ;
   
+  // --------------------------------------------------------------------
+  //  
   y += 30;  
  
   cp5.addButton("freezeDisplay")
@@ -648,6 +616,12 @@ public void autoScale(int theValue){
   }
 }
 
+void refSave(  ){
+	println("Flaging for graph storage");
+	refStoreFlag = true;
+}
+
+
 // On set scale (V or H) fix the cursors involved so the primaries are always on the lower side (swap them is needed).
 void swapCursors(){
   int tmpInt;
@@ -787,7 +761,7 @@ void draw(){
   
   maxValue = Double.NEGATIVE_INFINITY;
   maxScaledValue = Double.NEGATIVE_INFINITY;
-  
+  // println(buffer.length);
   for(int i = 0;i<buffer.length;i++){
     if(minValue > buffer[i] && buffer[i] != Double.NEGATIVE_INFINITY){
       minFrequency = startFreq + i * binStep;
@@ -802,6 +776,28 @@ void draw(){
 
   DataPoint[] scaledBuffer = scaleBufferX(buffer);
   
+  // Reference graph
+  //
+  if ( !refArrayHasData && refShow  ) { 
+	refArray = new DataPoint[scaledBuffer.length]; 
+	refShow = false; 
+	cp5.get(Toggle.class,"refShow").setValue(0);
+  }
+  if ( refShow && refArray.length != scaledBuffer.length )  {
+	  refStoreFlag = true;
+	  refShow = false;
+  }
+  if ( refStoreFlag )  {	
+		refArray = new DataPoint[scaledBuffer.length];
+		println("STORE size: " + refArray.length );
+		arrayCopy( scaledBuffer, refArray );
+		refArrayHasData = true;
+		refStoreFlag = false;
+		refShow = true;
+		cp5.get(Toggle.class,"refShow").setValue(1);
+  }  
+  
+  
   for(int i = 0;i<scaledBuffer.length;i++){
       if(scaledBuffer[i] == null) continue;
       
@@ -814,13 +810,23 @@ void draw(){
       }
   }
 
+	
+	
+	  
+  
+
   drawGraphMatt(scaleMin, scaleMax, startFreq, stopFreq);  
 
   double scaleFactor = (double)graphHeight() / (scaleMax - scaleMin);
   DataPoint lastPoint = null;
+  DataPoint refLastPoint = null;
 
   for (int i = 0; i < scaledBuffer.length; i++){
     DataPoint point = scaledBuffer[i];
+	DataPoint refPoint = null;
+	
+	if (refShow && refArrayHasData ) { refPoint = refArray[i]; }
+	
     if (point == null) continue;
 
     if (lastPoint != null){
@@ -833,9 +839,15 @@ void draw(){
         graphDrawLine(lastPoint.x, (int)((lastPoint.yMin - scaleMin) * scaleFactor), point.x, (int)((point.yMin - scaleMin) * scaleFactor), #C23B22, 255);
         graphDrawLine(lastPoint.x, (int)((lastPoint.yMax - scaleMin) * scaleFactor), point.x, (int)((point.yMax - scaleMin) * scaleFactor), #03C03C, 255);
       }
+	  
+	  if (refShow){
+        graphDrawLine(refLastPoint.x, (int)((refLastPoint.yAvg - scaleMin) * scaleFactor), refPoint.x, (int)((refPoint.yAvg - scaleMin) * scaleFactor), #1080A0, 255);
+      }
+	  
     }
     
     lastPoint = point;
+	refLastPoint = refPoint;
   }
   
   fill(#222324);
@@ -975,7 +987,7 @@ void resetMax(){
 
 void loadConfig(){
   //================ Function added by DJN 24 Aug 2017
-  table = loadTable(fileName, "header");
+  table = loadTable(fileName, "header"); //<>//
   startFreq = table.getInt(0, "startFreq");
   stopFreq = table.getInt(0, "stopFreq");
   binStep = table.getInt(0, "binStep");
@@ -983,71 +995,71 @@ void loadConfig(){
   scaleMax = table.getInt(0, "scaleMax");
   vertCursorFreq = table.getInt(0, "vertCursorFreq");
   
-  //Protection
+  //Protection //<>//
   if (binStep < binStepProtection) binStep = binStepProtection;
   
   // Init zoom back
   zoomBackFreqMin = startFreq; //<>//
-  zoomBackFreqMax = stopFreq;
-  zoomBackScalMin = scaleMin;
+  zoomBackFreqMax = stopFreq; //<>//
+  zoomBackScalMin = scaleMin; //<>//
   zoomBackScalMax = scaleMax;
-  
+   //<>//
   
   println("Config table " + fileName + " loaded."); 
   println("startFreq = " + startFreq + " stopFreq = " + stopFreq + " binStep = " + binStep + " scaleMin = " + scaleMin + " scaleMax = ", scaleMax + " vertCusorFreq = " + vertCursorFreq);
 
-
-} 
+ //<>//
+}  //<>//
   
-void saveConfig(){
-  //================ Function added by DJN 24 Aug 2017 //<>//
+void saveConfig(){ //<>//
+  //================ Function added by DJN 24 Aug 2017 //<>// //<>//
   // Note: saveTable fails if file is being backed up at time saveTable is run!  //<>//
   
-  if (startingupBypassSaveConfiguration == false) { //<>//
-    table.setInt(0, "startFreq", startFreq);
+  if (startingupBypassSaveConfiguration == false) { //<>// //<>//
+    table.setInt(0, "startFreq", startFreq); //<>//
     table.setInt(0, "stopFreq",stopFreq);
     table.setInt(0, "binStep", binStep);
     table.setInt(0, "scaleMin", scaleMin);
     table.setInt(0, "scaleMax", scaleMax);
     table.setInt(0, "vertCursorFreq",vertCursorFreq);
-    saveTable(table, fileName, "csv");
-    println("startFreq = " + startFreq + " stopFreq = " + stopFreq + " binStep = " + binStep + " scaleMin = " + scaleMin + " scaleMax = ", scaleMax + " vertCusorFreq = " + vertCursorFreq);
+    saveTable(table, fileName, "csv"); //<>//
+    println("startFreq = " + startFreq + " stopFreq = " + stopFreq + " binStep = " + binStep + " scaleMin = " + scaleMin + " scaleMax = ", scaleMax + " vertCusorFreq = " + vertCursorFreq); //<>//
     println("Config table " + fileName + " saved.");
-  }
-  
+  } //<>//
+   //<>//
 } //<>//
- 
-void makeConfig(){
-  //================ function added by DJN 24 Aug 2017
+  //<>// //<>//
+void makeConfig(){ //<>//
+  //================ function added by DJN 24 Aug 2017 //<>//
   FileWriter fw= null;
-  File file =null;
+  File file =null; //<>//
   
   println("File " + fileName);//println("File " + dataPath(fileName));
-
-  try {
+ //<>//
+  try { //<>//
     file=new File(fileName);//file=new File(dataPath(fileName));
-    if(file.exists()){
+    if(file.exists()){ //<>//
       println("File " + fileName + " exists.");//println("File " + dataPath(fileName) + " exists.");
-    }else{
-      // Recreate missing config file
-      file.createNewFile();
+    }else{ //<>//
+      // Recreate missing config file //<>//
+      file.createNewFile(); //<>//
       fw = new FileWriter(file);
-      // Write column headers to new config file
+      // Write column headers to new config file //<>// //<>//
       fw.write("startFreq,stopFreq,binStep,scaleMin,scaleMax,vertCursorFreq\n");
       // Write initial default values to new config file
       fw.write(startFreq + "," + stopFreq + "," + binStep + "," + scaleMin + "," + scaleMax + "," + vertCursorFreq);
       fw.flush();
       fw.close();
-      println(fileName +  " created succesfully");//println(dataPath(fileName) +  " created succesfully");
+      println(fileName +  " created succesfully");//println(dataPath(fileName) +  " created succesfully"); //<>//
     }
   } 
   catch(IOException e){
       e.printStackTrace();
-  }
- 
+  } //<>//
+  //<>// //<>//
   println("Reached end of makeconfig");
 }
-  
+   //<>// //<>//
 void setVertCursor(){
   // draw a vertical cursor line on the graph ================================
   if (vertCursorFreq < startFreq ){
@@ -1056,14 +1068,14 @@ void setVertCursor(){
   }else if(vertCursorFreq > stopFreq){
     vertCursorFreq = stopFreq;
     updateVertCursorText();  
-  }
-      
-  if(mouseDragLock){
-    updateVertCursorText();
-  }
-}
+  } //<>//
+       //<>// //<>//
+  if(mouseDragLock){ //<>//
+    updateVertCursorText(); //<>//
+  } //<>// //<>// //<>//
+} //<>// //<>//
 //==============================================
-void updateVertCursorText (){
+void updateVertCursorText (){ //<>// //<>//
   //RED-C-REM  cp5.get(Textfield.class,"vertCursorFreqText").setText(str(vertCursorFreq));
 }
 
@@ -1071,11 +1083,11 @@ void updateVertCursorText (){
 void drawVertCursor(){  
   float xBand;
   float xCur;
-  float xPlot;
-  xBand = (stopFreq - startFreq);
+  float xPlot; //<>//
+  xBand = (stopFreq - startFreq); //<>//
   
   /*   Remove RED cursor
-  float xBand = (stopFreq - startFreq); 
+  float xBand = (stopFreq - startFreq);  //<>// //<>//
   float xCur = (vertCursorFreq - startFreq);
   float xPlot = (xCur/xBand)* (graphWidth() + 230 - graphX());  // adjust cursor scale here!
   stroke(#FF0000);
@@ -1129,16 +1141,24 @@ void drawVertCursor(){
   
   // DELTA  - FREQ / SCALE
   //
+  float tmpVSWR = 1;
+  float tmpDdb = 0;
+  
+  tmpDdb = abs(scaleBottom - scaleTop);
+  tmpVSWR = (pow(10 , (tmpDdb / 20 )) +1 ) / ( pow( 10, (tmpDdb / 20))  - 1  ) ;
+  
   textAlign(LEFT);
   fill(cursorDeltaColor);
-  text("Δx : " + numToStr((freqRight - freqLeft)/1000)  + " kHz" + "\n" +
-       "Δy : " + String.format("%.1f",scaleBottom - scaleTop)  + " db", deltaLabelsX, deltaLabelsY );
+  text("Δx : " + numToStr((freqRight - freqLeft)/1000)  + " kHz" , deltaLabelsX, deltaLabelsY ) ;
+  text("Δy : " + String.format("%.1f",scaleBottom - scaleTop) + " db" , deltaLabelsX, deltaLabelsY + 20 );
+  textSize(12);   
+  text("VSWR: " + String.format("%.3f",tmpVSWR), deltaLabelsX, deltaLabelsY + 38 );	   
   //text("Δf " + numToStr(freqRight - freqLeft)  + " Hz", cursorVerticalLeftX+((cursorVerticalRightX-cursorVerticalLeftX)/2), graphY()  + 12);
   //text("Δs " + numToStr(scaleBottom - scaleTop)  + " db", graphX()+graphWidth()-20,    cursorHorizontalTopY+((cursorHorizontalBottomY-cursorHorizontalTopY)/2)    );
   
   textSize(12);
   noFill(); stroke(#808080);
-  rect( deltaLabelsX - 10, deltaLabelsY - 20 , 170,55);
+  rect( deltaLabelsX - 10, deltaLabelsY - 20 , 170,65);
   
 }
 
@@ -1147,7 +1167,7 @@ void drawVertCursor(){
 String numToStr(int inNum){
   // Convert number to string with commas  
   String outStr = nfc(inNum);
-  return outStr;
+  return outStr; //<>//
 } 
 
 int getGraphXfromFreq( int frequency ) { 
@@ -1155,111 +1175,111 @@ int getGraphXfromFreq( int frequency ) {
 }
 
 int getGraphYfromDb( int db ) {
-   return min(graphY() + graphHeight() + 10,  max( graphY() - 10, graphHeight() +graphY() - graphHeight() * (db - scaleMin) / (scaleMax - scaleMin) ));  
+   return min(graphY() + graphHeight() + 10,  max( graphY() - 10, graphHeight() +graphY() - graphHeight() * (db - scaleMin) / (scaleMax - scaleMin) ));   //<>//
 }
   
 //============== Move the red vertical cursor===============================================  
 
-void mousePressed(MouseEvent evnt){
+void mousePressed(MouseEvent evnt){ //<>//
   int thisMouseX = mouseX;
   int thisMouseY = mouseY;
-  
+   //<>//
   boolean CLICK_ABOVE;
   boolean CLICK_LEFT;
   boolean DOUBLE_CLICK;
    //<>//
-  CLICK_ABOVE = false;
+  CLICK_ABOVE = false; //<>//
   CLICK_LEFT = false;
   DOUBLE_CLICK = false;
-  
-  if (evnt.getCount() == 2) { DOUBLE_CLICK = true;
-    if (mouseButton == RIGHT) { cursorVerticalRightX = graphWidth() + graphX();    cursorHorizontalTopY = graphY(); } // TAG01 RIGHT->LEFT was LEFT
+   //<>//
+  if (evnt.getCount() == 2) { DOUBLE_CLICK = true; //<>//
+    if (mouseButton == RIGHT) { cursorVerticalRightX = graphWidth() + graphX();    cursorHorizontalTopY = graphY(); } // TAG01 RIGHT->LEFT was LEFT //<>//
     if (mouseButton == CENTER) {resetMin();   resetMax();   resetScale(1); };
     if (mouseButton == LEFT) zoomIn() ;        // TAG01 RIGHT->LEFT was RIGHT
-    
+     //<>//
     
     println("DOUBLE CLICK DETECTED");
     return;    // ATTENTION !!! RETURN !!!! BAD BAD HABIT. TODO properly.
   } //<>//
-  
-  
+   //<>//
+   //<>//
   //Protecion //<>//
   if (thisMouseX < graphX() || thisMouseX > graphWidth() + graphX() +1) return;
-  if (thisMouseY < graphY() || thisMouseY > graphHeight() + graphY() +1) return;
+  if (thisMouseY < graphY() || thisMouseY > graphHeight() + graphY() +1) return; //<>// //<>//
   
   //Calculate center
-  if ( (thisMouseX - graphX()) < (graphWidth()/2) ){
-    CLICK_LEFT = true;
+  if ( (thisMouseX - graphX()) < (graphWidth()/2) ){ //<>// //<>//
+    CLICK_LEFT = true; //<>//
   }
   
-  if ( (thisMouseY - graphY() < graphHeight()/2) ){
-    CLICK_ABOVE = true; //<>//
+  if ( (thisMouseY - graphY() < graphHeight()/2) ){ //<>//
+    CLICK_ABOVE = true; //<>// //<>//
   }
-  
+   //<>//
   
   int clickFreq = startFreq + hzPerPixel() * (thisMouseX - graphX());
-  int clickScale;
+  int clickScale; //<>// //<>//
   clickScale = ( (thisMouseY - graphY()) * gainPerPixel() ) / 1000 ;   //      startFreq + hzPerPixel() * (thisMouseY - graphY());
   clickScale = scaleMax - clickScale;
-  
-  if (mouseButton == RIGHT ) // TAG01 RIGHT<->LEFT was LEFT
+   //<>//
+  if (mouseButton == RIGHT ) // TAG01 RIGHT<->LEFT was LEFT //<>//
   {
-    // Test if the mouse over graph
+    // Test if the mouse over graph //<>//
     if (thisMouseX >= graphX() && thisMouseX <= graphWidth() + graphX() +1){ //<>//
       mouseDragLock = true; 
       
-      vertCursorFreq = clickFreq;
+      vertCursorFreq = clickFreq; //<>//
       lastMouseX = mouseX;
-      println("clickFreq = " + clickFreq);    
+      println("clickFreq = " + clickFreq);     //<>//
     }
     
     
-    cursorVerticalLeftX = mouseX;
-    cursorHorizontalBottomY = mouseY;
-    
+    cursorVerticalLeftX = mouseX; //<>// //<>//
+    cursorHorizontalBottomY = mouseY; //<>//
+     //<>//
     println("clickFreq: " + clickFreq + ",   clickScale: " + clickScale);
     
-    
-  }
-  else if (mouseButton == CENTER){
+     //<>//
+  } //<>//
+  else if (mouseButton == CENTER){ //<>//
     
     mouseDragGraph = GRAPH_DRAG_STARTED;
     
     dragGraphStartX = mouseX;
-    dragGraphStartY = mouseY;
+    dragGraphStartY = mouseY; //<>//
     
-    
-  }
+     //<>//
+  } //<>//
   else if (mouseButton == LEFT){  // TAG01 RIGHT->LEFT was RIGHT
-    int SELECT_THR = 20;
-    // Drag cursors
+    int SELECT_THR = 20; //<>//
+    // Drag cursors //<>// //<>//
     //
-    //  TOP
-    if ( abs(mouseY-cursorHorizontalTopY) <= SELECT_THR ){
+    //  TOP //<>//
+    if ( abs(mouseY-cursorHorizontalTopY) <= SELECT_THR ){ //<>//
       println("TOP LINE");
-      println("clickScale: " + clickScale);
+      println("clickScale: " + clickScale); //<>//
       cp5.get(Textfield.class,"scaleMaxText").setText(str(clickScale));
       sweepVertical( mouseY - graphY(),  #fcd420, 255);
       cursorHorizontalTopY = mouseY;
-      movingCursor = CURSORS.CUR_Y_TOP;
-      
+      movingCursor = CURSORS.CUR_Y_TOP; //<>//
+       //<>//
       // Button color indicating change
       cp5.get(Button.class,"setScale").setColorBackground( clickMeButtonColor );
-      
+       //<>//
     }
-    //  BOTTOM
+    //  BOTTOM //<>//
     else if ( abs(mouseY-cursorHorizontalBottomY) <= SELECT_THR ){
       println("BOTTOM LINE");
       println("clickScale: " + clickScale);
       cp5.get(Textfield.class,"scaleMinText").setText(str(clickScale));
       sweepVertical( mouseY - graphY(),  #fcd420, 255);
-      cursorHorizontalBottomY = mouseY;
-      movingCursor = CURSORS.CUR_Y_BOTTOM;
+      cursorHorizontalBottomY = mouseY; //<>//
+      movingCursor = CURSORS.CUR_Y_BOTTOM; //<>//
       
       // Button color indicating change
-      cp5.get(Button.class,"setScale").setColorBackground( clickMeButtonColor );
+      cp5.get(Button.class,"setScale").setColorBackground( clickMeButtonColor ); //<>//
     }
-    // LEFT
+    // LEFT //<>//
     else if ( abs(mouseX-cursorVerticalLeftX) <= SELECT_THR ){
       println("LEFT LINE");
       println("clickFreq: " + clickFreq);
