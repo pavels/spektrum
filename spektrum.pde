@@ -13,6 +13,8 @@ import java.util.*;
 // GRGNCK version 0.10-grg
 // GRGNCK version 0.11-grg
 // GRGNCK version 0.12-grg
+// GRGNCK version 0.13-grg
+//
 // Changelog : 
 /*
 v0.9
@@ -50,15 +52,20 @@ v0.11
     - _MWHeel Drag_ : Move graph refedining min/max frequency and amplitude
     - _MWHeel Up/Down_ : On Four edges of graph adjusts corresponding value (min/max freq or db)
     - _MWHeel Up/Down_ : On middle of graph area zooms in/out the graph by symetrically changing all four limits
-    Added: Mouse Wheel zoom is pre-shown by rectangle on graph.
-    Added: Fill or Line for graph.
+    - Added: Mouse Wheel zoom is pre-shown by rectangle on graph.
+    - Added: Fill or Line for graph.
 v0.12
     - Added: VSWR calculation for the antenna tunning guys.
     - Added: Reference graph (Save a graph in memory and have on screen for comparisons).
+v0.13
+	- Fixed: double click in controls area was doing the zoom operation.
+    - Added: Min Freq, Max Freq, rfGain, ifOffset ifType in config
+	- Added: Averaging system based on video refresh rate.
 */
 
 Rtlspektrum spektrumReader;
 ControlP5 cp5;
+DataPoint[] scaledBuffer;
 
 boolean startingupBypassSaveConfiguration = true;
 
@@ -108,6 +115,10 @@ int binStep = 1000;
 int binStepProtection = 200;
 int vertCursorFreq = 88000000;
 int tmpFreq = 0;
+int rfGain = 0;
+int ifOffset = 0;
+int ifType = 0;
+
 
 int scaleMin = -110;
 int scaleMax = 40;
@@ -144,6 +155,7 @@ int relMode = 0;
 double minFrequency;
 double minValue;
 double minScaledValue;
+
 
 double maxFrequency;
 double maxValue;
@@ -189,6 +201,18 @@ boolean refStoreFlag = false; // Used to flag a save in draw()
 DataPoint[] refArray ; // Storage of reference graph
 boolean refArrayHasData = false;
 
+DataPoint[] avgArray ; // Storage of reference graph
+boolean avgShow = false;
+boolean avgArrayHasData = false;
+int avgDepth = 10;
+int avgNewSampleWeight = 1;
+boolean avgSamples = false; 
+
+int lastScanPosition = 0;
+int scanPosition = 0;
+int completeCycles = 0;	// How many times the scanner has finished the defined range
+
+
 //=========================
 
 void MsgBox( String Msg, String Title ){
@@ -214,6 +238,8 @@ void setupStartControls(){
   for (int i=0; i<devices.length; i++){
     deviceDropdown.addItem(devices[i], i);
   } 
+  
+  scaledBuffer =  new DataPoint[0];
 }
 
 void setupControls(){
@@ -439,8 +465,29 @@ void setupControls(){
     .setColorBackground(buttonColor)
     .getCaptionLabel().align(ControlP5.CENTER, ControlP5.CENTER).setText("Save Reference")
     ;
+	
+	cp5.addToggle("avgShow")
+     .setPosition(x + 60, y+50)
+     .setSize(20,20)
+     .setValue(false)
+     .getCaptionLabel().align(ControlP5.LEFT, ControlP5.TOP_OUTSIDE).setText("Video Average")
+     ;
+	
+ 	cp5.addToggle("avgSamples")
+     .setPosition(x + 90, y+50)
+     .setSize(20,20)
+     .setValue(false)
+     .getCaptionLabel().align(ControlP5.LEFT, ControlP5.TOP_OUTSIDE).setText("+")
+     ;
  
- 
+	cp5.addTextfield("avgDepthTxt")
+    .setSize(30, 20)
+	.setPosition(x + 130, y+50)
+    .setText(str(avgDepth))
+    .setAutoClear(false)
+    .getCaptionLabel().align(ControlP5.LEFT, ControlP5.TOP_OUTSIDE).setText("Depth")
+    ;
+	
   // --------------------------------------------------------------------
   //  
   y += 100;  
@@ -689,7 +736,7 @@ public void deviceDropdown(int theValue){
   int status = spektrumReader.openDevice();
   
   //============ Function calls added by Dave N
-  //makeConfig();  // create config file if it is not found.
+  makeConfig();  // create config file if it is not found.
   loadConfig();
   //============================
   
@@ -773,8 +820,12 @@ void draw(){
       maxValue = buffer[i];
     }
   }
+  
 
-  DataPoint[] scaledBuffer = scaleBufferX(buffer);
+  
+  scaledBuffer = scaleBufferX(buffer);
+  
+  // scaledBuffer = scaleBufferX(buffer);
   
   // Reference graph
   //
@@ -797,7 +848,19 @@ void draw(){
 		cp5.get(Toggle.class,"refShow").setValue(1);
   }  
   
+  // Average - 
+  //
+  if ( !avgArrayHasData && avgShow  ) { 
+	avgArray = new DataPoint[scaledBuffer.length]; 
+	//avgShow = false; 
+	// cp5.get(Toggle.class,"avgShow").setValue(0);
+  }
+  if ( avgShow && avgArray.length != scaledBuffer.length )  {
+	  avgArray = new DataPoint[scaledBuffer.length];
+  }
   
+  // Data processing per screen point
+  //
   for(int i = 0;i<scaledBuffer.length;i++){
       if(scaledBuffer[i] == null) continue;
       
@@ -808,11 +871,18 @@ void draw(){
       if(maxScaledValue < scaledBuffer[i].yAvg){
         maxScaledValue = scaledBuffer[i].yAvg;
       }
-  }
-
-	
-	
 	  
+//	 if ( !avgArrayHasData ) {	// Initialize array
+//		println("STORING Average");
+//		scaledBuffer[i].avgY = scaledBuffer[i].yAvg; // * avgDepth;
+//		avgArrayHasData = true;					
+//	}
+//	else
+//	{
+//		
+//	}
+//	  
+  }
   
 
   drawGraphMatt(scaleMin, scaleMax, startFreq, stopFreq);  
@@ -820,34 +890,82 @@ void draw(){
   double scaleFactor = (double)graphHeight() / (scaleMax - scaleMin);
   DataPoint lastPoint = null;
   DataPoint refLastPoint = null;
-
-  for (int i = 0; i < scaledBuffer.length; i++){
-    DataPoint point = scaledBuffer[i];
+  DataPoint avgLastPoint = null;
+  
+	DataPoint point = null;
 	DataPoint refPoint = null;
+	DataPoint avgPoint = null;
+  
+	color tmpColorGraph = color( 200,200,40 );
+	color tmpColorAvg = color( 10,200,40 );
+	
+  int tmpAlpha = 255;
+  if (avgShow)  tmpAlpha = 70; else tmpAlpha = 255;
+  
+  for (int i = 0; i < scaledBuffer.length; i++){
+    point = scaledBuffer[i];
+	refPoint = null;
+	avgPoint = scaledBuffer[i];
 	
 	if (refShow && refArrayHasData ) { refPoint = refArray[i]; }
+	if (avgShow && avgArrayHasData ) { avgPoint = avgArray[i]; }
 	
-    if (point == null) continue;
-
+    if (point == null ) continue;
+	if (avgPoint == null) avgArrayHasData = false;
+	
     if (lastPoint != null){
-		if ( drawFill ) {
-			graphDrawFill(lastPoint.x, (int)((lastPoint.yAvg - scaleMin) * scaleFactor), point.x, (int)((point.yAvg - scaleMin) * scaleFactor), #fcf400, 120);  
-		}	else {
-			graphDrawLine(lastPoint.x, (int)((lastPoint.yAvg - scaleMin) * scaleFactor), point.x, (int)((point.yAvg - scaleMin) * scaleFactor), #fcf400, 255);
+	
+	// MAIN graph
+	//
+	if ( drawFill ) {
+		graphDrawFill(lastPoint.x, (int)((lastPoint.yAvg - scaleMin) * scaleFactor), point.x, (int)((point.yAvg - scaleMin) * scaleFactor), #fcf400, 50);  
+	}		
+	
+	graphDrawLine(lastPoint.x, (int)((lastPoint.yAvg - scaleMin) * scaleFactor), point.x, (int)((point.yAvg - scaleMin) * scaleFactor),tmpColorGraph , tmpAlpha);
+	
+	if(minmaxDisplay){
+		graphDrawLine(lastPoint.x, (int)((lastPoint.yMin - scaleMin) * scaleFactor), point.x, (int)((point.yMin - scaleMin) * scaleFactor), #C23B22, 255);
+		graphDrawLine(lastPoint.x, (int)((lastPoint.yMax - scaleMin) * scaleFactor), point.x, (int)((point.yMax - scaleMin) * scaleFactor), #03C03C, 255);
+	}
+	  	  
+	if (refShow){
+		graphDrawLine(refLastPoint.x, (int)((refLastPoint.yAvg - scaleMin) * scaleFactor), refPoint.x, (int)((refPoint.yAvg - scaleMin) * scaleFactor), #1080A0, 255);
+	}
+
+	if (avgShow){	  
+		if ( !avgArrayHasData ) {	// Initialize array
+			println("STORING Average");
+			avgArray = new DataPoint[scaledBuffer.length];
+			arrayCopy( scaledBuffer, avgArray);
+			avgArrayHasData = true;				
 		}
-      if(minmaxDisplay){
-        graphDrawLine(lastPoint.x, (int)((lastPoint.yMin - scaleMin) * scaleFactor), point.x, (int)((point.yMin - scaleMin) * scaleFactor), #C23B22, 255);
-        graphDrawLine(lastPoint.x, (int)((lastPoint.yMax - scaleMin) * scaleFactor), point.x, (int)((point.yMax - scaleMin) * scaleFactor), #03C03C, 255);
-      }
-	  
-	  if (refShow){
-        graphDrawLine(refLastPoint.x, (int)((refLastPoint.yAvg - scaleMin) * scaleFactor), refPoint.x, (int)((refPoint.yAvg - scaleMin) * scaleFactor), #1080A0, 255);
-      }
-	  
-    }
+		else	// Update and show
+		{	
+			if ( !avgSamples  )
+			{
+				avgArray[i].yAvg = avgArray[i].yAvg - (avgArray[i].yAvg / avgDepth ) +  (scaledBuffer[i].yAvg / (float)avgDepth);
+			}
+			else if ( completeCycles > 0) {
+				avgArray[i].yAvg = avgArray[i].yAvg - (avgArray[i].yAvg / avgDepth ) +  (scaledBuffer[i].yAvg / (float)avgDepth);
+				
+				//avgArray[i].yAvg = 0; //scaledBuffer[i].yAvg;
+				completeCycles = 0;  
+				println("UPDATED");
+			}
+			
+			if (avgLastPoint!= null) {
+				graphDrawLine(avgLastPoint.x, (int)((avgLastPoint.yAvg - scaleMin) * scaleFactor), avgPoint.x,   (int)((avgPoint.yAvg - scaleMin) * scaleFactor), tmpColorAvg, 255);
+			}
+		}
+
+	}
+
+		
+   }
     
     lastPoint = point;
 	refLastPoint = refPoint;
+	avgLastPoint = avgPoint;
   }
   
   fill(#222324);
@@ -867,8 +985,18 @@ void draw(){
     drawVertCursor();
   }
   
+ 
+  scanPosition = spektrumReader.getScanPos();
+  
+  if ( lastScanPosition != scanPosition ) {
+	if (scanPosition - lastScanPosition <= 0) completeCycles++;
+	lastScanPosition = scanPosition ;
+	// println("RECYCLE !!!" + lastScanPosition);
+  
+  }
+  
   if(sweepDisplay){
-    int scanPos = (int)(((float)graphWidth() / (float)buffer.length) * (float)spektrumReader.getScanPos());
+    int scanPos = (int)(((float)graphWidth() / (float)buffer.length) * (float)scanPosition);
     sweep(scanPos, #FFFFFF, 64);
   }
   
@@ -933,11 +1061,26 @@ void draw(){
     setRange(1);
     println("Reload Config!");
   }
-  
-  
-  
+   
 }
 // end of draw rtn =============================================
+
+
+// Average waveform check box
+//
+void avgShow( int value)
+{
+	if (value == 1) {
+		avgShow = true;
+		avgArrayHasData = false;
+		avgDepth = max( parseInt(cp5.get(Textfield.class,"avgDepthTxt").getText()),2);
+	} else {
+		avgShow = false;
+		avgArrayHasData = false;
+	}
+}
+
+
 
 void freezeDisplay(){
 //================ added by DJN 26 Aug 2017
@@ -978,7 +1121,7 @@ void resetMax(){
   cp5.get(Textfield.class,"stopFreqText").setText( str(fullRangeMax) );
   
   setRange(1);
-  
+   
 }
 
 
@@ -986,96 +1129,113 @@ void resetMax(){
 
 
 void loadConfig(){
-  //================ Function added by DJN 24 Aug 2017
-  table = loadTable(fileName, "header"); //<>//
+		
+  //================ Function added by DJN 24 Aug 2017 
+  table = loadTable(fileName, "header"); 
   startFreq = table.getInt(0, "startFreq");
   stopFreq = table.getInt(0, "stopFreq");
-  binStep = table.getInt(0, "binStep");
-  scaleMin = table.getInt(0, "scaleMin");
-  scaleMax = table.getInt(0, "scaleMax");
-  vertCursorFreq = table.getInt(0, "vertCursorFreq");
+  binStep = table.getInt(0, "binStep"); 
+  scaleMin = table.getInt(0, "scaleMin"); 
+  scaleMax = table.getInt(0, "scaleMax"); 
+  // rfGain = table.getInt(0, "rfGain");
+  fullRangeMin = table.getInt(0, "minFreq"); 
+  fullRangeMax = table.getInt(0, "maxFreq");
   
-  //Protection //<>//
+  //Protection 
   if (binStep < binStepProtection) binStep = binStepProtection;
-  
-  // Init zoom back
-  zoomBackFreqMin = startFreq; //<>//
-  zoomBackFreqMax = stopFreq; //<>//
-  zoomBackScalMin = scaleMin; //<>//
-  zoomBackScalMax = scaleMax;
-   //<>//
-  
-  println("Config table " + fileName + " loaded."); 
-  println("startFreq = " + startFreq + " stopFreq = " + stopFreq + " binStep = " + binStep + " scaleMin = " + scaleMin + " scaleMax = ", scaleMax + " vertCusorFreq = " + vertCursorFreq);
+   
+  // Init zoom back 
+  zoomBackFreqMin = startFreq; 
+  zoomBackFreqMax = stopFreq;  
+  zoomBackScalMin = scaleMin;  
+  zoomBackScalMax = scaleMax; 
+   
+   
+  println("Config table " + fileName + " loaded.");  
+  println("startFreq = " + startFreq + " stopFreq = " + stopFreq + " binStep = " + binStep + " scaleMin = " + 
+      scaleMin + " scaleMax = ", scaleMax + " rfGain = " + rfGain + " fullRangeMin = " + fullRangeMin + "  fullRangeMax = " + fullRangeMax + 
+      " ifOffset = " + ifOffset + " ifType = " + ifType);
 
- //<>//
-}  //<>//
-  
-void saveConfig(){ //<>//
-  //================ Function added by DJN 24 Aug 2017 //<>// //<>//
-  // Note: saveTable fails if file is being backed up at time saveTable is run!  //<>//
-  
-  if (startingupBypassSaveConfiguration == false) { //<>// //<>//
-    table.setInt(0, "startFreq", startFreq); //<>//
-    table.setInt(0, "stopFreq",stopFreq);
+ 
+}   
+   
+void saveConfig(){ 
+  //================ Function added by DJN 24 Aug 2017   
+  // Note: saveTable fails if file is being backed up at time saveTable is run!   
+   
+  if (startingupBypassSaveConfiguration == false) {   
+    table.setInt(0, "startFreq", startFreq);  
+    table.setInt(0, "stopFreq",stopFreq); 
     table.setInt(0, "binStep", binStep);
-    table.setInt(0, "scaleMin", scaleMin);
+    table.setInt(0, "scaleMin", scaleMin); 
     table.setInt(0, "scaleMax", scaleMax);
-    table.setInt(0, "vertCursorFreq",vertCursorFreq);
-    saveTable(table, fileName, "csv"); //<>//
-    println("startFreq = " + startFreq + " stopFreq = " + stopFreq + " binStep = " + binStep + " scaleMin = " + scaleMin + " scaleMax = ", scaleMax + " vertCusorFreq = " + vertCursorFreq); //<>//
+    table.setInt(0, "rfGain",rfGain);
+	  table.setInt(0, "minFreq",fullRangeMin); 
+	  table.setInt(0, "maxFreq",fullRangeMax); 
+	  table.setInt(0, "ifOffset",ifOffset);
+	  table.setInt(0, "ifType",ifType); 
+	
+    saveTable(table, fileName, "csv");  
+     
+    println("startFreq = " + startFreq + " stopFreq = " + stopFreq + " binStep = " + binStep + " scaleMin = " +  
+      scaleMin + " scaleMax = ", scaleMax + " rfGain = " + rfGain + " fullRangeMin = " + fullRangeMin + "  fullRangeMax = " + fullRangeMax + 
+      " ifOffset = " + ifOffset + " ifType = " + ifType);  
     println("Config table " + fileName + " saved.");
-  } //<>//
-   //<>//
-} //<>//
-  //<>// //<>//
-void makeConfig(){ //<>//
-  //================ function added by DJN 24 Aug 2017 //<>//
+  } 
+   
+} 
+   
+void makeConfig(){  
+  //================ function added by DJN 24 Aug 2017 
   FileWriter fw= null;
-  File file =null; //<>//
+  File file =null; 
   
-  println("File " + fileName);//println("File " + dataPath(fileName));
- //<>//
-  try { //<>//
+  println("File " + fileName);//println("File " + dataPath(fileName)); 
+  
+  try { 
     file=new File(fileName);//file=new File(dataPath(fileName));
-    if(file.exists()){ //<>//
+	println( file.getAbsolutePath());  
+  if(file.exists()){  
       println("File " + fileName + " exists.");//println("File " + dataPath(fileName) + " exists.");
-    }else{ //<>//
-      // Recreate missing config file //<>//
-      file.createNewFile(); //<>//
+    }else{ 
+      // Recreate missing config file 
+      file.createNewFile(); 
       fw = new FileWriter(file);
-      // Write column headers to new config file //<>// //<>//
-      fw.write("startFreq,stopFreq,binStep,scaleMin,scaleMax,vertCursorFreq\n");
+      // Write column headers to new config file  
       // Write initial default values to new config file
-      fw.write(startFreq + "," + stopFreq + "," + binStep + "," + scaleMin + "," + scaleMax + "," + vertCursorFreq);
-      fw.flush();
-      fw.close();
-      println(fileName +  " created succesfully");//println(dataPath(fileName) +  " created succesfully"); //<>//
-    }
+      // fw.write(startFreq + "," + stopFreq + "," + binStep + "," + scaleMin + "," + scaleMax + "," + rfGain + ",24000000,1800000000");
+	   
+      fw.write("startFreq,stopFreq,binStep,scaleMin,scaleMax,rfGain,minFreq,maxFreq,ifOffset,ifType\n"); 
+      fw.write("24000000,1800000000,2000,-110,40,0,24000000,1800000000,0,0\n"); 
+       
+	  fw.flush(); 
+      fw.close(); 
+      println(fileName +  " created succesfully");//println(dataPath(fileName) +  " created succesfully"); 
+    } 
   } 
   catch(IOException e){
       e.printStackTrace();
-  } //<>//
-  //<>// //<>//
+  } 
+   
   println("Reached end of makeconfig");
 }
-   //<>// //<>//
-void setVertCursor(){
+     
+void setVertCursor(){ 
   // draw a vertical cursor line on the graph ================================
   if (vertCursorFreq < startFreq ){
-    vertCursorFreq = startFreq;
+    vertCursorFreq = startFreq; 
     updateVertCursorText();
   }else if(vertCursorFreq > stopFreq){
     vertCursorFreq = stopFreq;
     updateVertCursorText();  
-  } //<>//
-       //<>// //<>//
-  if(mouseDragLock){ //<>//
-    updateVertCursorText(); //<>//
-  } //<>// //<>// //<>//
-} //<>// //<>//
+  } 
+        
+  if(mouseDragLock){ 
+    updateVertCursorText(); 
+  }   
+}  
 //==============================================
-void updateVertCursorText (){ //<>// //<>//
+void updateVertCursorText (){  
   //RED-C-REM  cp5.get(Textfield.class,"vertCursorFreqText").setText(str(vertCursorFreq));
 }
 
@@ -1083,11 +1243,11 @@ void updateVertCursorText (){ //<>// //<>//
 void drawVertCursor(){  
   float xBand;
   float xCur;
-  float xPlot; //<>//
-  xBand = (stopFreq - startFreq); //<>//
+  float xPlot; 
+  xBand = (stopFreq - startFreq); 
   
   /*   Remove RED cursor
-  float xBand = (stopFreq - startFreq);  //<>// //<>//
+  float xBand = (stopFreq - startFreq);   
   float xCur = (vertCursorFreq - startFreq);
   float xPlot = (xCur/xBand)* (graphWidth() + 230 - graphX());  // adjust cursor scale here!
   stroke(#FF0000);
@@ -1143,7 +1303,7 @@ void drawVertCursor(){
   //
   float tmpVSWR = 1;
   float tmpDdb = 0;
-  
+   
   tmpDdb = abs(scaleBottom - scaleTop);
   tmpVSWR = (pow(10 , (tmpDdb / 20 )) +1 ) / ( pow( 10, (tmpDdb / 20))  - 1  ) ;
   
@@ -1151,135 +1311,140 @@ void drawVertCursor(){
   fill(cursorDeltaColor);
   text("Δx : " + numToStr((freqRight - freqLeft)/1000)  + " kHz" , deltaLabelsX, deltaLabelsY ) ;
   text("Δy : " + String.format("%.1f",scaleBottom - scaleTop) + " db" , deltaLabelsX, deltaLabelsY + 20 );
-  textSize(12);   
+  textSize(12);    
   text("VSWR: " + String.format("%.3f",tmpVSWR), deltaLabelsX, deltaLabelsY + 38 );	   
   //text("Δf " + numToStr(freqRight - freqLeft)  + " Hz", cursorVerticalLeftX+((cursorVerticalRightX-cursorVerticalLeftX)/2), graphY()  + 12);
   //text("Δs " + numToStr(scaleBottom - scaleTop)  + " db", graphX()+graphWidth()-20,    cursorHorizontalTopY+((cursorHorizontalBottomY-cursorHorizontalTopY)/2)    );
   
-  textSize(12);
+  textSize(12); 
   noFill(); stroke(#808080);
   rect( deltaLabelsX - 10, deltaLabelsY - 20 , 170,65);
-  
+   
 }
 
 // ====================================================================
-
-String numToStr(int inNum){
+ 
+String numToStr(int inNum){ 
   // Convert number to string with commas  
   String outStr = nfc(inNum);
-  return outStr; //<>//
-} 
-
+  return outStr;  
+}  
+ 
 int getGraphXfromFreq( int frequency ) { 
    return max(graphX() -10, min( graphX() + graphWidth() + 10, graphX() + graphWidth()  * (frequency/1000 - startFreq/1000) / (stopFreq/1000 - startFreq/1000)));  
-}
+} 
 
 int getGraphYfromDb( int db ) {
-   return min(graphY() + graphHeight() + 10,  max( graphY() - 10, graphHeight() +graphY() - graphHeight() * (db - scaleMin) / (scaleMax - scaleMin) ));   //<>//
-}
-  
-//============== Move the red vertical cursor===============================================  
-
-void mousePressed(MouseEvent evnt){ //<>//
-  int thisMouseX = mouseX;
+   return min(graphY() + graphHeight() + 10,  max( graphY() - 10, graphHeight() +graphY() - graphHeight() * (db - scaleMin) / (scaleMax - scaleMin) ));   
+} 
+   
+//============== Move the red vertical cursor===============================================   
+ 
+void mousePressed(MouseEvent evnt){ 
+  int thisMouseX = mouseX; 
   int thisMouseY = mouseY;
-   //<>//
-  boolean CLICK_ABOVE;
-  boolean CLICK_LEFT;
+   
+  boolean CLICK_ABOVE; 
+  boolean CLICK_LEFT; 
   boolean DOUBLE_CLICK;
-   //<>//
-  CLICK_ABOVE = false; //<>//
-  CLICK_LEFT = false;
+   
+  CLICK_ABOVE = false;  
+  CLICK_LEFT = false; 
   DOUBLE_CLICK = false;
-   //<>//
-  if (evnt.getCount() == 2) { DOUBLE_CLICK = true; //<>//
-    if (mouseButton == RIGHT) { cursorVerticalRightX = graphWidth() + graphX();    cursorHorizontalTopY = graphY(); } // TAG01 RIGHT->LEFT was LEFT //<>//
+   
+  // Only alow clicks in the graph
+  // 
+  if ( mouseX < graphX() ) return;   
+  
+  if (evnt.getCount() == 2) { 
+	DOUBLE_CLICK = true;  
+    if (mouseButton == RIGHT) { cursorVerticalRightX = graphWidth() + graphX();  cursorHorizontalTopY = graphY(); } // TAG01 RIGHT->LEFT was LEFT  
     if (mouseButton == CENTER) {resetMin();   resetMax();   resetScale(1); };
-    if (mouseButton == LEFT) zoomIn() ;        // TAG01 RIGHT->LEFT was RIGHT
-     //<>//
+    if (mouseButton == LEFT) zoomIn() ;        // TAG01 RIGHT->LEFT was RIGHT 
+      
     
     println("DOUBLE CLICK DETECTED");
-    return;    // ATTENTION !!! RETURN !!!! BAD BAD HABIT. TODO properly.
-  } //<>//
-   //<>//
-   //<>//
-  //Protecion //<>//
+    return;    // ATTENTION !!! RETURN !!!! BAD BAD HABIT. TODO properly. -GRG 
+  } 
+    
+   
+  //Protecion 
   if (thisMouseX < graphX() || thisMouseX > graphWidth() + graphX() +1) return;
-  if (thisMouseY < graphY() || thisMouseY > graphHeight() + graphY() +1) return; //<>// //<>//
-  
-  //Calculate center
-  if ( (thisMouseX - graphX()) < (graphWidth()/2) ){ //<>// //<>//
-    CLICK_LEFT = true; //<>//
+  if (thisMouseY < graphY() || thisMouseY > graphHeight() + graphY() +1) return;   
+   
+  //Calculate center 
+  if ( (thisMouseX - graphX()) < (graphWidth()/2) ){  
+    CLICK_LEFT = true; 
+  } 
+   
+  if ( (thisMouseY - graphY() < graphHeight()/2) ){  
+    CLICK_ABOVE = true;  
   }
+   
   
-  if ( (thisMouseY - graphY() < graphHeight()/2) ){ //<>//
-    CLICK_ABOVE = true; //<>// //<>//
-  }
-   //<>//
-  
-  int clickFreq = startFreq + hzPerPixel() * (thisMouseX - graphX());
-  int clickScale; //<>// //<>//
-  clickScale = ( (thisMouseY - graphY()) * gainPerPixel() ) / 1000 ;   //      startFreq + hzPerPixel() * (thisMouseY - graphY());
-  clickScale = scaleMax - clickScale;
-   //<>//
-  if (mouseButton == RIGHT ) // TAG01 RIGHT<->LEFT was LEFT //<>//
-  {
-    // Test if the mouse over graph //<>//
-    if (thisMouseX >= graphX() && thisMouseX <= graphWidth() + graphX() +1){ //<>//
-      mouseDragLock = true; 
+  int clickFreq = startFreq + hzPerPixel() * (thisMouseX - graphX()); 
+  int clickScale;  
+  clickScale = ( (thisMouseY - graphY()) * gainPerPixel() ) / 1000 ;   //      startFreq + hzPerPixel() * (thisMouseY - graphY()); 
+  clickScale = scaleMax - clickScale; 
+   
+  if (mouseButton == RIGHT ) // TAG01 RIGHT<->LEFT was LEFT  
+  { 
+    // Test if the mouse over graph 
+    if (thisMouseX >= graphX() && thisMouseX <= graphWidth() + graphX() +1){  
+      mouseDragLock = true;  
       
-      vertCursorFreq = clickFreq; //<>//
+      vertCursorFreq = clickFreq;  
       lastMouseX = mouseX;
-      println("clickFreq = " + clickFreq);     //<>//
+      println("clickFreq = " + clickFreq);     
     }
-    
-    
-    cursorVerticalLeftX = mouseX; //<>// //<>//
-    cursorHorizontalBottomY = mouseY; //<>//
-     //<>//
+     
+     
+    cursorVerticalLeftX = mouseX;  
+    cursorHorizontalBottomY = mouseY; 
+      
     println("clickFreq: " + clickFreq + ",   clickScale: " + clickScale);
-    
-     //<>//
-  } //<>//
-  else if (mouseButton == CENTER){ //<>//
+     
+     
+  } 
+  else if (mouseButton == CENTER){ 
     
     mouseDragGraph = GRAPH_DRAG_STARTED;
+     
+    dragGraphStartX = mouseX; 
+    dragGraphStartY = mouseY; 
     
-    dragGraphStartX = mouseX;
-    dragGraphStartY = mouseY; //<>//
-    
-     //<>//
-  } //<>//
-  else if (mouseButton == LEFT){  // TAG01 RIGHT->LEFT was RIGHT
-    int SELECT_THR = 20; //<>//
-    // Drag cursors //<>// //<>//
+      
+  } 
+  else if (mouseButton == LEFT){  // TAG01 RIGHT->LEFT was RIGHT 
+    int SELECT_THR = 20; 
+    // Drag cursors  
     //
-    //  TOP //<>//
-    if ( abs(mouseY-cursorHorizontalTopY) <= SELECT_THR ){ //<>//
+    //  TOP 
+    if ( abs(mouseY-cursorHorizontalTopY) <= SELECT_THR ){ 
       println("TOP LINE");
-      println("clickScale: " + clickScale); //<>//
+      println("clickScale: " + clickScale); 
       cp5.get(Textfield.class,"scaleMaxText").setText(str(clickScale));
       sweepVertical( mouseY - graphY(),  #fcd420, 255);
       cursorHorizontalTopY = mouseY;
-      movingCursor = CURSORS.CUR_Y_TOP; //<>//
-       //<>//
+      movingCursor = CURSORS.CUR_Y_TOP; 
+       
       // Button color indicating change
       cp5.get(Button.class,"setScale").setColorBackground( clickMeButtonColor );
-       //<>//
+       
     }
-    //  BOTTOM //<>//
+    //  BOTTOM 
     else if ( abs(mouseY-cursorHorizontalBottomY) <= SELECT_THR ){
       println("BOTTOM LINE");
       println("clickScale: " + clickScale);
       cp5.get(Textfield.class,"scaleMinText").setText(str(clickScale));
       sweepVertical( mouseY - graphY(),  #fcd420, 255);
-      cursorHorizontalBottomY = mouseY; //<>//
-      movingCursor = CURSORS.CUR_Y_BOTTOM; //<>//
+      cursorHorizontalBottomY = mouseY; 
+      movingCursor = CURSORS.CUR_Y_BOTTOM; 
       
       // Button color indicating change
-      cp5.get(Button.class,"setScale").setColorBackground( clickMeButtonColor ); //<>//
+      cp5.get(Button.class,"setScale").setColorBackground( clickMeButtonColor ); 
     }
-    // LEFT //<>//
+    // LEFT 
     else if ( abs(mouseX-cursorVerticalLeftX) <= SELECT_THR ){
       println("LEFT LINE");
       println("clickFreq: " + clickFreq);
