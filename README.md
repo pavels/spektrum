@@ -38,6 +38,7 @@ Progress so far
 - Added: Filling in graph option (line or area).
 - Added: VSWR calculation display for the antenna tunning guys (delta db from curosrs to VSWR).
 - Added: Reference graph save / display.
+- Added: Video averaging, useful on fast refresh (zoomed in).
 
 Rearranged User interface: | Area/Line option 
 :-------------------------: | :-------------------------:
