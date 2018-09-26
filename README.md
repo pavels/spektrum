@@ -62,13 +62,10 @@ Reference save/display: |  Averaging (video)
 :-------------------------: | :-------------------------:
 ![ Reference save/display ](https://github.com/SV8ARJ/spektrum/blob/master/screenshots/referenceGraph.png) | ![ Averaging ](https://github.com/SV8ARJ/spektrum/blob/master/screenshots/Averaging01.png) 
 
-
-
-
-
 Min Max hold & Median: |  VHF band scan with Max hold
 :-------------------------: | :-------------------------:
 ![ Min Max hold & Median: ](https://github.com/SV8ARJ/spektrum/blob/master/screenshots/MinMaxMedian.png) | ![ VHF band scan with Max hold ](https://github.com/SV8ARJ/spektrum/blob/master/screenshots/MaxHoldScanVHF.png) 
+
 
 
 Original readme starts here:
