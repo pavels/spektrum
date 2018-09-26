@@ -2,7 +2,7 @@
 
 ### "The SV mod" - UI improvements by SV1SGK and SV8ARJ. W.I.P.
 
-Download the latest test build (v0.13_25-SEP-18) from [here](https://www.dropbox.com/s/ygastot7rgh121s/spektrum-SVmod-v0.13.zip?dl=0).
+Download the latest test build (v0.14_26-SEP-18) from [here](https://www.dropbox.com/sh/c7vjbvm0mhi4xqu/AAAnuL9OkGZnQfcmRo2nRf8Ia?dl=0).
 -------
 - Please report bugs/comments before our pull request. The rtlsdr.dll and rtlpower.dll included (in the lib folder) are from previous version of spektrum (v1.0.2). Latest versions (also included but renamed to ****.dll-latest) were giving us a grey screen (not working). YMMV.
 - If you get an error after selecting device see [this](https://github.com/SV8ARJ/spektrum/issues/1).
@@ -39,6 +39,8 @@ Progress so far
 - Added: VSWR calculation display for the antenna tunning guys (delta db from curosrs to VSWR).
 - Added: Reference graph save / display.
 - Added: Video averaging, useful on fast refresh (zoomed in).
+- Added: Minimum, Maximum hold (persistant display).
+- Added: Median value display (middle value between Max and Min).
 
 Rearranged User interface: | Area/Line option 
 :-------------------------: | :-------------------------:
@@ -58,9 +60,15 @@ Drag graph with middle mouse button: | Area of interest centered
 
 Reference save/display: |  Averaging (video)
 :-------------------------: | :-------------------------:
-![ Graph is not centered ](https://github.com/SV8ARJ/spektrum/blob/master/screenshots/referenceGraph.png) | ![ Averaging ](https://github.com/SV8ARJ/spektrum/blob/master/screenshots/Averaging01.png) 
+![ Reference save/display ](https://github.com/SV8ARJ/spektrum/blob/master/screenshots/referenceGraph.png) | ![ Averaging ](https://github.com/SV8ARJ/spektrum/blob/master/screenshots/Averaging01.png) 
 
 
+
+
+
+Min Max hold & Median: |  VHF band scan with Max hold
+:-------------------------: | :-------------------------:
+![ Min Max hold & Median: ](https://github.com/SV8ARJ/spektrum/blob/master/screenshots/MinMaxMedian.png) | ![ VHF band scan with Max hold ](https://github.com/SV8ARJ/spektrum/blob/master/screenshots/MaxHoldScanVHF.png) 
 
 
 Original readme starts here:
