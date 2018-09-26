@@ -18,8 +18,8 @@ Progress so far
 - Added: 2 Cursors for Amplitude axis.
 - Added: Absolute and differential measurements with cursors.
 - Added: Zoom functionality of the cursors's defined area (gain + frequency).
-- Added: _Mouse Wheel_ Frequency limits adjustment on graph (Top area for upper, low area for lower).
-- Added: _Mouse Wheel_ Gain limits adjustment on graph (left area for lower frequency, right for upper).
+- Added: _Mouse Wheel_ Gain limits adjustment on graph (Top area for upper, Bottom area for lower limit).
+- Added: _Mouse Wheel_ Frequency limits adjustment on graph (left area for lower frequency, right for upper).
 - Added: _Mouse Wheel_ in the centrer of the graph performs symetric zoom in/out.
 - Added: View/settings store/recall (elementary "back" operation, nice for quick zoomed in graph inspection).
 - Added: _Right click_ positions primary cursors.
