@@ -14,6 +14,7 @@ import java.util.*;
 // GRGNCK version 0.11-grg
 // GRGNCK version 0.12-grg
 // GRGNCK version 0.13-grg
+// GRGNCK version 0.14-grg
 //
 // Changelog : 
 /*
@@ -61,7 +62,12 @@ v0.13
 	- Fixed: double click in controls area was doing the zoom operation.
     - Added: Min Freq, Max Freq, rfGain, ifOffset ifType in config
 	- Added: Averaging system based on video refresh rate.
+v0.14
+	- Fixed: Limited cursor movement
+	- UI re-arranged
+    - Added: Min/Max/Med persistant display
 */
+
 
 Rtlspektrum spektrumReader;
 ControlP5 cp5;
@@ -123,6 +129,9 @@ int ifType = 0;
 int scaleMin = -110;
 int scaleMax = 40;
 
+int uiNextLineIndex = 0;
+int[] uiLines = new int[10];
+
 final int GRAPH_DRAG_NONE = 0;
 final int GRAPH_DRAG_STARTED = 1;
 final int GRAPH_DRAG_ENDED = 0;
@@ -156,7 +165,6 @@ double minFrequency;
 double minValue;
 double minScaledValue;
 
-
 double maxFrequency;
 double maxValue;
 double maxScaledValue;
@@ -189,24 +197,38 @@ boolean overGraph = false;
 boolean mouseDragLock = false;
 int startDraggingThr = 5;
 int lastMouseX;
-color buttonColor = color(80,80,80);
+color buttonColor = color(70,70,70);
+color buttonColorText = color(255,255,230);
 color setButtonColor = color(127,0,0);
 color clickMeButtonColor = color(20,200,20); 
 boolean drawSampleToggle=false;
 boolean vertCursorToggle=true;
 boolean drawFill=false;
 
+// Reference
+//
 boolean refShow = false;	// If the reference graph is shown on screen
 boolean refStoreFlag = false; // Used to flag a save in draw()
 DataPoint[] refArray ; // Storage of reference graph
 boolean refArrayHasData = false;
 
+// Average
+//
 DataPoint[] avgArray ; // Storage of reference graph
 boolean avgShow = false;
 boolean avgArrayHasData = false;
 int avgDepth = 10;
 int avgNewSampleWeight = 1;
 boolean avgSamples = false; 
+
+// Persistant
+//
+DataPoint[] perArray ; // Storage of Minimum and Maximum persiastant data graph
+boolean perShowMax = false;
+boolean perShowMin = false;
+boolean perShowMed = false;
+boolean perArrayHasData = false;
+
 
 int lastScanPosition = 0;
 int scanPosition = 0;
@@ -264,6 +286,7 @@ void setupControls(){
     .setPosition(width-30, y)
     .setSize(40, 20)
     .setColorBackground(buttonColor)
+	.setColorLabel(buttonColorText)
     .getCaptionLabel().align(ControlP5.CENTER, ControlP5.CENTER).setText("|<< RST")
     ;
  
@@ -285,6 +308,7 @@ void setupControls(){
     .setPosition(width-30, y)
     .setSize(40, 20)
     .setColorBackground(buttonColor)
+	.setColorLabel(buttonColorText)
     .getCaptionLabel().align(ControlP5.CENTER, ControlP5.CENTER).setText("RST >>|")
     ;
     
@@ -296,27 +320,25 @@ void setupControls(){
   
   cp5.addTextfield("binStepText")
     .setPosition(x, y)
-    .setSize((width - 10)/2, 20)
+    .setSize(60, 20)
     .setText(str(binStep))
     .setAutoClear(false)
     .getCaptionLabel().align(ControlP5.LEFT, ControlP5.TOP_OUTSIDE).setText("Bin size [Hz]")
     ;
     
   
-  // --------------------------------------------------------------------
-  //  
-  y += 30;
-
   cp5.addButton("setRange")
     .setValue(0)
-    .setPosition(x+width/4, y)
+    .setPosition(100, y)
     .setSize(width/2, 20)
     .setColorBackground(buttonColor)
+	.setColorLabel(buttonColorText)
     .getCaptionLabel().align(ControlP5.CENTER, ControlP5.CENTER).setText("Set range")
     ;
     
-    
-
+  uiLines[uiNextLineIndex++] = y;
+  	
+  
 
   // --------------------------------------------------------------------
   //  
@@ -324,41 +346,40 @@ void setupControls(){
 
   cp5.addTextfield("scaleMinText")
     .setPosition(x, y)
-    .setSize((width - 10) / 2, 20)
+    .setSize(25, 20)
     .setText(str(scaleMin))
     .setAutoClear(false)
     .getCaptionLabel().align(ControlP5.LEFT, ControlP5.TOP_OUTSIDE).setText("Lower")
     ;
 
   cp5.addTextfield("scaleMaxText")
-    .setPosition((width - 10) / 2 + 24, y)
-    .setSize((width - 10) / 2, 20)
+    .setPosition(20 + 30, y)
+    .setSize(25, 20)
     .setText(str(scaleMax))
     .setAutoClear(false)
     .getCaptionLabel().align(ControlP5.LEFT, ControlP5.TOP_OUTSIDE).setText("Upper")
     ;
 
-  // --------------------------------------------------------------------
-  //  
-  y += 30;
+
 
   cp5.addButton("setScale")
     //.setValue(0)
-    .setPosition(x+width/4, y)
+    .setPosition(100, y)
     .setSize(width/2, 20)
     .setColorBackground(buttonColor)
+	.setColorLabel(buttonColorText)
     .getCaptionLabel().align(ControlP5.CENTER, ControlP5.CENTER).setText("Set scale")
     ;
-    
-    
+  
   // --------------------------------------------------------------------
   //  
-  y += 30;
+  y += 40;
   
   cp5.addButton("autoScale")
     //.setValue(0)
     .setPosition(x, y)
     .setSize(80, 20)
+	.setColorLabel(buttonColorText)
     .setColorBackground(buttonColor).getCaptionLabel().align(ControlP5.CENTER, ControlP5.CENTER).setText("Auto scale")
     ;
     
@@ -367,13 +388,15 @@ void setupControls(){
     .setPosition(x+90, y)
     .setSize(80, 20)
     .setColorBackground(buttonColor)
+	.setColorLabel(buttonColorText)
     .getCaptionLabel().align(ControlP5.CENTER, ControlP5.CENTER).setText("Reset scale")
     ;
     
+  uiLines[uiNextLineIndex++] = y;
  
   // --------------------------------------------------------------------
   //  
-  y += 40;
+  y += 50;
   
   // toggle vertical sursor on or off
   cp5.addToggle("vertCursorToggle")
@@ -421,9 +444,11 @@ void setupControls(){
      .getCaptionLabel().align(ControlP5.LEFT, ControlP5.TOP_OUTSIDE).setText("Sweep")
      ;  
 
+   uiLines[uiNextLineIndex++] = y;
+	 
   // --------------------------------------------------------------------
   //  
-  y += 30;
+  y += 35;
   
   cp5.addTextlabel("label")
 	.setText("GAIN")
@@ -438,7 +463,7 @@ void setupControls(){
                     .setBarHeight(20)
                     .setItemHeight(20)
                     .setPosition(x, y)
-                    .setSize(40, 80)
+                    .setSize(40, 60)
                     ;
   
   gainDropdown.getCaptionLabel().align(ControlP5.LEFT, ControlP5.TOP_OUTSIDE).setText("");
@@ -463,18 +488,21 @@ void setupControls(){
     .setPosition(x+width/2+5, y)
     .setSize(width/2-5, 20)
     .setColorBackground(buttonColor)
+	.setColorLabel(buttonColorText)
     .getCaptionLabel().align(ControlP5.CENTER, ControlP5.CENTER).setText("Save Reference")
     ;
 	
+	// ---------------------------
+	
 	cp5.addToggle("avgShow")
-     .setPosition(x + 60, y+50)
+     .setPosition(x + 60, y+40)
      .setSize(20,20)
      .setValue(false)
      .getCaptionLabel().align(ControlP5.LEFT, ControlP5.TOP_OUTSIDE).setText("Video Average")
      ;
 	
  	cp5.addToggle("avgSamples")
-     .setPosition(x + 90, y+50)
+     .setPosition(x + 90, y+40)
      .setSize(20,20)
      .setValue(false)
      .getCaptionLabel().align(ControlP5.LEFT, ControlP5.TOP_OUTSIDE).setText("+")
@@ -482,12 +510,53 @@ void setupControls(){
  
 	cp5.addTextfield("avgDepthTxt")
     .setSize(30, 20)
-	.setPosition(x + 130, y+50)
+	.setPosition(x + 130, y+40)
     .setText(str(avgDepth))
     .setAutoClear(false)
     .getCaptionLabel().align(ControlP5.LEFT, ControlP5.TOP_OUTSIDE).setText("Depth")
     ;
 	
+	
+	
+	
+	
+	// --------------------------------------------------------------------
+    //  
+    y += 30;  
+	
+	cp5.addToggle("perShowMaxToggle")
+     .setPosition(x + 30, y+50)
+     .setSize(20,20)
+     .setValue(false)
+     .getCaptionLabel().align(ControlP5.LEFT, ControlP5.TOP_OUTSIDE).setText("Persistance")
+     ;
+	
+	cp5.addToggle("perShowMedToggle")
+     .setPosition(x + 60, y+50)
+     .setSize(20,20)
+     .setValue(false)
+     .getCaptionLabel().align(ControlP5.LEFT, ControlP5.TOP_OUTSIDE).setText("")
+     ;
+	
+
+	
+ 	cp5.addToggle("perShowMinToggle")
+     .setPosition(x + 90, y+50)
+     .setSize(20,20)
+     .setValue(false)
+     .getCaptionLabel().align(ControlP5.LEFT, ControlP5.TOP_OUTSIDE).setText("+");
+	
+	cp5.addButton("perReset")
+    .setPosition(x + 130, y+50)
+    .setSize(40, 20)
+    .setColorBackground(buttonColor)
+	.setColorLabel(buttonColorText)
+    .getCaptionLabel().align(ControlP5.CENTER, ControlP5.CENTER).setText("RESET")
+    ;
+		
+	uiLines[uiNextLineIndex++] = y + 50;
+	
+		
   // --------------------------------------------------------------------
   //  
   y += 100;  
@@ -496,6 +565,7 @@ void setupControls(){
     .setPosition(x+width/2+5, y)
     .setSize(width/2-5, 20)
     .setColorBackground(buttonColor)
+	.setColorLabel(buttonColorText)
     .getCaptionLabel().align(ControlP5.CENTER, ControlP5.CENTER).setText("Back")
     ;
   
@@ -503,6 +573,7 @@ void setupControls(){
     .setPosition(x, y)
     .setSize(width/2-5, 20)
     .setColorBackground(buttonColor)
+	.setColorLabel(buttonColorText)
     .getCaptionLabel().align(ControlP5.CENTER, ControlP5.CENTER).setText("Zoom")
     ;
 
@@ -528,6 +599,7 @@ void setupControls(){
     .setPosition(x, y)
     .setSize(width/2-5, 20)
     .setColorBackground(buttonColor)
+	.setColorLabel(buttonColorText)
     .getCaptionLabel().align(ControlP5.CENTER, ControlP5.CENTER).setText("Pause")
     ;
   
@@ -536,9 +608,12 @@ void setupControls(){
     .setPosition(x+width/2+5, y)
     .setSize(width/2-5, 20)
     .setColorBackground(buttonColor)
+	.setColorLabel(buttonColorText)
     .getCaptionLabel().align(ControlP5.CENTER, ControlP5.CENTER).setText("Exit")
     ;
-    
+   
+
+  uiLines[uiNextLineIndex++] = 0;   
     
   // Keep the down left position for the Delta label
   deltaLabelsYWaiting = y + 60;
@@ -586,6 +661,35 @@ public void sweepToggle(int theValue){
   }
 }
 
+public void perShowMaxToggle(int theValue){
+  if(setupDone){
+    if(theValue > 0){
+      perShowMax = true;
+    }else{
+      perShowMax = false;
+    }
+  }
+}
+
+public void perShowMinToggle(int theValue){
+  if(setupDone){
+    if(theValue > 0){
+      perShowMin = true;
+    }else{
+      perShowMin = false;
+    }
+  }
+}
+
+public void perShowMedToggle(int theValue){
+  if(setupDone){
+    if(theValue > 0){
+      perShowMed = true;
+    }else{
+      perShowMed = false;
+    }
+  }
+}
 
 public void setRange(int theValue){
   
@@ -667,6 +771,11 @@ void refSave(  ){
 	println("Flaging for graph storage");
 	refStoreFlag = true;
 }
+
+void perReset(  ){
+	perArrayHasData = false;
+}
+	
 
 
 // On set scale (V or H) fix the cursors involved so the primaries are always on the lower side (swap them is needed).
@@ -859,6 +968,21 @@ void draw(){
 	  avgArray = new DataPoint[scaledBuffer.length];
   }
   
+  
+  // Persistant data - 
+  //
+  if ( !perArrayHasData && (perShowMin || perShowMax || perShowMed)  ) { 
+	perArray = new DataPoint[scaledBuffer.length]; 
+	//avgShow = false; 
+	// cp5.get(Toggle.class,"avgShow").setValue(0);
+  }
+  if ( (perShowMin || perShowMax || perShowMed) && perArray.length != scaledBuffer.length )  {
+	  perArray = new DataPoint[scaledBuffer.length];
+  }
+  
+  
+  
+  
   // Data processing per screen point
   //
   for(int i = 0;i<scaledBuffer.length;i++){
@@ -891,27 +1015,40 @@ void draw(){
   DataPoint lastPoint = null;
   DataPoint refLastPoint = null;
   DataPoint avgLastPoint = null;
+  DataPoint perLastPoint = null;
   
 	DataPoint point = null;
 	DataPoint refPoint = null;
 	DataPoint avgPoint = null;
+	DataPoint perPoint = null;
   
 	color tmpColorGraph = color( 200,200,40 );
 	color tmpColorAvg = color( 10,200,40 );
+	//color tmpColorPerMax = color( 255, 0, 102 );
+	//color tmpColorPerMin = color( 200, 0, 99 );
+	color tmpColorPerMax = color( 180, 180, 180 );
+	color tmpColorPerMin = color( 160, 160, 160 );
+	color tmpColorPerMed = color( 51, 204, 255 );
+	
 	
   int tmpAlpha = 255;
-  if (avgShow)  tmpAlpha = 70; else tmpAlpha = 255;
+  if (avgShow || perShowMed)  tmpAlpha = 70; else tmpAlpha = 255;
   
+  // Main point per point loop
+  //
   for (int i = 0; i < scaledBuffer.length; i++){
     point = scaledBuffer[i];
 	refPoint = null;
 	avgPoint = scaledBuffer[i];
+	perPoint = scaledBuffer[i];
 	
 	if (refShow && refArrayHasData ) { refPoint = refArray[i]; }
 	if (avgShow && avgArrayHasData ) { avgPoint = avgArray[i]; }
+	if ((perShowMin || perShowMax || perShowMed ) && perArrayHasData ) { perPoint = perArray[i]; }
 	
     if (point == null ) continue;
 	if (avgPoint == null) avgArrayHasData = false;
+	if (perPoint == null) perArrayHasData = false;
 	
     if (lastPoint != null){
 	
@@ -927,11 +1064,16 @@ void draw(){
 		graphDrawLine(lastPoint.x, (int)((lastPoint.yMin - scaleMin) * scaleFactor), point.x, (int)((point.yMin - scaleMin) * scaleFactor), #C23B22, 255);
 		graphDrawLine(lastPoint.x, (int)((lastPoint.yMax - scaleMin) * scaleFactor), point.x, (int)((point.yMax - scaleMin) * scaleFactor), #03C03C, 255);
 	}
-	  	  
+	
+
+	// Reference graph
+	//	
 	if (refShow){
 		graphDrawLine(refLastPoint.x, (int)((refLastPoint.yAvg - scaleMin) * scaleFactor), refPoint.x, (int)((refPoint.yAvg - scaleMin) * scaleFactor), #1080A0, 255);
 	}
 
+	// Average graph
+	//
 	if (avgShow){	  
 		if ( !avgArrayHasData ) {	// Initialize array
 			println("STORING Average");
@@ -947,10 +1089,8 @@ void draw(){
 			}
 			else if ( completeCycles > 0) {
 				avgArray[i].yAvg = avgArray[i].yAvg - (avgArray[i].yAvg / avgDepth ) +  (scaledBuffer[i].yAvg / (float)avgDepth);
-				
-				//avgArray[i].yAvg = 0; //scaledBuffer[i].yAvg;
 				completeCycles = 0;  
-				println("UPDATED");
+				// println("UPDATED");
 			}
 			
 			if (avgLastPoint!= null) {
@@ -959,6 +1099,47 @@ void draw(){
 		}
 
 	}
+	
+	// Persistant graph
+	//
+	if (perShowMin || perShowMax || perShowMed){	  
+		if ( !perArrayHasData ) {	// Initialize array
+			println("STORING Persistant");
+			perArray = new DataPoint[scaledBuffer.length];
+			arrayCopy( scaledBuffer, perArray);
+			for ( int jj=0; jj< scaledBuffer.length-1; jj++) {
+				perArray[jj].yMax = perArray[jj].yAvg ;
+				perArray[jj].yMin = perArray[jj].yAvg ;
+			}
+				
+	//		for ( int jj=0; jj< scaledBuffer.length-1; jj++) {
+	//			perArray[jj].yMax = scaledBuffer[jj].yAvg;
+	//			perArray[jj].yMin = scaledBuffer[jj].yAvg;
+	//		}
+			perArrayHasData = true;				
+		}
+		else	// Update and show
+		{	
+			if ( scaledBuffer[i].yAvg> perArray[i].yMax ) perArray[i].yMax = scaledBuffer[i].yAvg;
+			if ( scaledBuffer[i].yAvg< perArray[i].yMin ) perArray[i].yMin = scaledBuffer[i].yAvg;
+			perArray[i].yAvg = perArray[i].yMin + ( perArray[i].yMax - perArray[i].yMin ) /2;
+			
+			
+			
+			if (perLastPoint!= null) {
+				if (perShowMax)
+					graphDrawLine(perLastPoint.x, (int)((perLastPoint.yMax - scaleMin) * scaleFactor), perPoint.x,   (int)((perPoint.yMax - scaleMin) * scaleFactor), tmpColorPerMax, 200);
+				if (perShowMin)
+					graphDrawLine(perLastPoint.x, (int)((perLastPoint.yMin - scaleMin) * scaleFactor), perPoint.x,   (int)((perPoint.yMin - scaleMin) * scaleFactor), tmpColorPerMin, 200);
+				if (perShowMed)
+					graphDrawLine(perLastPoint.x, (int)((perLastPoint.yAvg - scaleMin) * scaleFactor), perPoint.x,   (int)((perPoint.yAvg - scaleMin) * scaleFactor), tmpColorPerMed, 255);
+					
+			}
+		}
+
+	}	
+	
+	
 
 		
    }
@@ -966,6 +1147,7 @@ void draw(){
     lastPoint = point;
 	refLastPoint = refPoint;
 	avgLastPoint = avgPoint;
+	perLastPoint = perPoint;
   }
   
   fill(#222324);
@@ -1312,14 +1494,17 @@ void drawVertCursor(){
   text("Δx : " + numToStr((freqRight - freqLeft)/1000)  + " kHz" , deltaLabelsX, deltaLabelsY ) ;
   text("Δy : " + String.format("%.1f",scaleBottom - scaleTop) + " db" , deltaLabelsX, deltaLabelsY + 20 );
   textSize(12);    
-  text("VSWR: " + String.format("%.3f",tmpVSWR), deltaLabelsX, deltaLabelsY + 38 );	   
+  text("VSWR: 1 : " + String.format("%.3f",tmpVSWR), deltaLabelsX, deltaLabelsY + 38 );	   
   //text("Δf " + numToStr(freqRight - freqLeft)  + " Hz", cursorVerticalLeftX+((cursorVerticalRightX-cursorVerticalLeftX)/2), graphY()  + 12);
   //text("Δs " + numToStr(scaleBottom - scaleTop)  + " db", graphX()+graphWidth()-20,    cursorHorizontalTopY+((cursorHorizontalBottomY-cursorHorizontalTopY)/2)    );
   
   textSize(12); 
   noFill(); stroke(#808080);
   rect( deltaLabelsX - 10, deltaLabelsY - 20 , 170,65);
-   
+  
+  for ( uiNextLineIndex = 0; uiLines[uiNextLineIndex] != 0 ; uiNextLineIndex++ ) 
+	line( 5, uiLines[uiNextLineIndex] + 30 ,  195, uiLines[uiNextLineIndex]  + 30);
+  
 }
 
 // ====================================================================
@@ -1502,32 +1687,32 @@ void mouseDragged(){
   
   
   if (movingCursor == CURSORS.CUR_X_LEFT) {
-    if (thisMouseX<cursorVerticalRightX) {
+    //if (thisMouseX<cursorVerticalRightX) {
       cursorVerticalLeftX = thisMouseX;
       int clickFreq = startFreq + hzPerPixel() * (thisMouseX - graphX());
       cp5.get(Textfield.class,"startFreqText").setText( str(clickFreq) );
-    }
+    //}
   }
   else if (movingCursor == CURSORS.CUR_X_RIGHT) {
-    if (thisMouseX>cursorVerticalLeftX) { 
+    //if (thisMouseX>cursorVerticalLeftX) { 
       cursorVerticalRightX = thisMouseX;
       int clickFreq = startFreq + hzPerPixel() * (thisMouseX - graphX());
       cp5.get(Textfield.class,"stopFreqText").setText( str(clickFreq) );
-    }
+    //}
   }
   else if (movingCursor == CURSORS.CUR_Y_TOP) {
-    if (thisMouseY<cursorHorizontalBottomY) {
+    //if (thisMouseY<cursorHorizontalBottomY) {
       cursorHorizontalTopY = thisMouseY;
       int clickScale = scaleMax - ( ( (thisMouseY - graphY()) * gainPerPixel() ) / 1000 ) ;
       cp5.get(Textfield.class,"scaleMaxText").setText(str(clickScale));
-    }
+    //}
   }
   else if (movingCursor == CURSORS.CUR_Y_BOTTOM) {
-    if (thisMouseY>cursorHorizontalTopY) {
+    //if (thisMouseY>cursorHorizontalTopY) {
       cursorHorizontalBottomY = thisMouseY;
       int clickScale = scaleMax - ( ( (thisMouseY - graphY()) * gainPerPixel() ) / 1000 ) ;
       cp5.get(Textfield.class,"scaleMinText").setText(str(clickScale));
-    }
+    //}
   }
   
   if (mouseButton == RIGHT){    // TAG01 RIGHT->LEFT was LEFT
