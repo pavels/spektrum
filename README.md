@@ -35,7 +35,7 @@ Progress so far
 - Added: Display of frequency, Amplitude and differences for all cursors.
 - Modified: Button layout.
 - Fixed: Save/Reload settings on exit/start. IMPORTANT : delete the "data" folder from the installation location if you have it.
-- Added: Filling in graph option (line or area).
+- Added: Filled graph option (line or area).
 - Added: VSWR calculation display for the antenna tunning guys (delta db from curosrs to VSWR).
 - Added: Reference graph save / display.
 - Added: Video averaging, useful on fast refresh (zoomed in).
