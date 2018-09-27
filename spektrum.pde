@@ -65,9 +65,12 @@ v0.13
 v0.14
 	- Fixed: Limited cursor movement
 	- UI re-arranged
-    - Added: Min/Max/Med persistant display
+    - Added: Min/Max/Med persistent display
+v0.15
+	- Added: Quick Help screen
 */
 
+String svVersion = "v0.15";
 
 Rtlspektrum spektrumReader;
 ControlP5 cp5;
@@ -172,12 +175,25 @@ double maxScaledValue;
 boolean minmaxDisplay = false;
 boolean sweepDisplay = false;
 
+int showInfoScreen = 0;
 class DataPoint {
   public int x;
   public double yMin = 0;
   public double yMax = 0;
   public double yAvg = 0;
 }
+
+class infoScreen {
+	public int topY = 0;
+	public int leftX = 0;
+	public int width = 0;
+	public int height = 0;
+	public String text = "";
+	color colorBack;
+}
+
+infoScreen infoHelp;
+
 
 //========= added by Dave N
 Table table;
@@ -262,6 +278,9 @@ void setupStartControls(){
   } 
   
   scaledBuffer =  new DataPoint[0];
+  
+  
+  
 }
 
 void setupControls(){
@@ -528,7 +547,7 @@ void setupControls(){
      .setPosition(x + 30, y+50)
      .setSize(20,20)
      .setValue(false)
-     .getCaptionLabel().align(ControlP5.LEFT, ControlP5.TOP_OUTSIDE).setText("Persistance")
+     .getCaptionLabel().align(ControlP5.LEFT, ControlP5.TOP_OUTSIDE).setText("Persistence")
      ;
 	
 	cp5.addToggle("perShowMedToggle")
@@ -614,6 +633,23 @@ void setupControls(){
    
 
   uiLines[uiNextLineIndex++] = 0;   
+  
+    cp5.addButton("helpShow")
+    //.setValue(0)
+    .setPosition(60, y+130)
+    .setSize(80, 20)
+    .setColorBackground(buttonColor)
+	.setColorLabel(buttonColorText)
+    .getCaptionLabel().align(ControlP5.CENTER, ControlP5.CENTER).setText("HELP")
+    ;
+  
+  
+  cp5.addTextarea("textArea01")
+    .setPosition(0, 0)
+    .setSize(1, 1)
+    .setText("")
+    ;
+    
     
   // Keep the down left position for the Delta label
   deltaLabelsYWaiting = y + 60;
@@ -930,12 +966,8 @@ void draw(){
     }
   }
   
-
-  
   scaledBuffer = scaleBufferX(buffer);
-  
-  // scaledBuffer = scaleBufferX(buffer);
-  
+    
   // Reference graph
   //
   if ( !refArrayHasData && refShow  ) { 
@@ -957,7 +989,7 @@ void draw(){
 		cp5.get(Toggle.class,"refShow").setValue(1);
   }  
   
-  // Average - 
+  // Average graph 
   //
   if ( !avgArrayHasData && avgShow  ) { 
 	avgArray = new DataPoint[scaledBuffer.length]; 
@@ -969,7 +1001,7 @@ void draw(){
   }
   
   
-  // Persistant data - 
+  // Persistent data graph 
   //
   if ( !perArrayHasData && (perShowMin || perShowMax || perShowMed)  ) { 
 	perArray = new DataPoint[scaledBuffer.length]; 
@@ -980,9 +1012,7 @@ void draw(){
 	  perArray = new DataPoint[scaledBuffer.length];
   }
   
-  
-  
-  
+    
   // Data processing per screen point
   //
   for(int i = 0;i<scaledBuffer.length;i++){
@@ -1100,7 +1130,7 @@ void draw(){
 
 	}
 	
-	// Persistant graph
+	// Persistent graph
 	//
 	if (perShowMin || perShowMax || perShowMed){	  
 		if ( !perArrayHasData ) {	// Initialize array
@@ -1152,10 +1182,7 @@ void draw(){
   
   fill(#222324);
   stroke(#D5921F);
-  
-  
-  
-  
+    
   textAlign(LEFT); 
   fill(#C23B22);
   text("Min: " + String.format("%.2f", minFrequency / 1000) + "kHz " + String.format("%.2f", minValue) + "dB", minMaxTextX +5, minMaxTextY+20);
@@ -1243,10 +1270,89 @@ void draw(){
     setRange(1);
     println("Reload Config!");
   }
+  
+  // Help Screen
+  //
+ // if (showInfoScreen > 0) {
+//	showInfoScreen--;
+//	fill(40,40,40); 
+//	// rect ( graphX() + 10, graphY() + 10, graphWidth() - 20, graphHeight() - 20);
+ // }
+   
    
 }
-// end of draw rtn =============================================
+//
+// end of draw routine =============================================
 
+
+// Help Button
+//
+void helpShow ( ) {
+	Textarea tmpTA=cp5.get(Textarea.class,"textArea01");
+	PFont pfont = createFont("Arial",15,true); // use true/false for smooth/no-smooth
+    ControlFont font = new ControlFont(pfont,15,50);
+	String tmpMessage;
+
+	tmpMessage = "\nSPEKTRUM - Quick reference.\n";
+	tmpMessage+= "\n\n";
+	tmpMessage+= "Mouse operation :-                                                                          \n" ;
+	tmpMessage+= "\n";
+	tmpMessage+= "Left Mouse Button :                                                                         \n" ;
+	tmpMessage+= "- Click and Drag on Cursor : Move cursor                                                    \n" ;
+	tmpMessage+= "- Double Click : Zoom in defined area (by cursors)                                          \n" ;
+	tmpMessage+= "\n";
+	tmpMessage+= "Right Mouse Button :                                                                        \n" ;
+	tmpMessage+= "- Click : Move primary cursors to mouse pointer                                             \n" ;
+	tmpMessage+= "- Double click : Move primary cursors to pointer, store away secondary cursors.             \n" ;
+	tmpMessage+= "- Click and Drag : Define an area with promary and secindary cursors. Diff. measurements.   \n" ;
+	tmpMessage+= "\n";
+	tmpMessage+= "Mouse wheel :                                                                               \n" ;
+	tmpMessage+= "- Double click : Reset full ranges (Aplitude and Frequency)                                 \n" ;
+	tmpMessage+= "- Click and Drag : Move graph in X/Y preserving X/Y delta ranges (Pan graph)                \n" ;
+	tmpMessage+= "- Rotate on top/bottom of graph to change corresponding Amplitude limit                     \n" ;
+	tmpMessage+= "- Rotate on left/right of graph to change corresponding frequency limit                     \n" ;
+	tmpMessage+= "- Rotate in middle of graph to xhange zoom level (X and Y)                                  \n" ;
+	tmpMessage+= "\n\n";
+	tmpMessage+= "\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n";
+	tmpMessage+= "\n";
+	tmpMessage+= "Original spektrum : https://github.com/pavels/spektrum\n";
+	tmpMessage+= "SV mods (" + svVersion + ")  : https://github.com/SV8ARJ/spektrum\n";
+	tmpMessage+= "";	
+	
+	if ( showInfoScreen == 0){
+		tmpTA.setPosition( graphX() + 10 , graphY() + 10 );
+		tmpTA.setSize(graphWidth() - 20, graphHeight() - 20);
+		tmpTA.setColorBackground( #808080);
+		tmpTA.setText(tmpMessage);
+		tmpTA.setFont(font);
+		
+		// Close button
+		//
+		cp5.addButton("closeHelp")
+		.setPosition(graphX() + graphWidth() - 60, graphY() + 15)
+		.setSize(40, 20)
+		.setColorBackground(buttonColor)
+		.setColorLabel(buttonColorText)
+		.getCaptionLabel().align(ControlP5.CENTER, ControlP5.CENTER).setText("CLOSE")
+		;
+		
+		showInfoScreen = 1;
+	}
+	else{
+		showInfoScreen = 0;
+		tmpTA.clear();
+		tmpTA.setPosition( 0 , 0 );
+		tmpTA.setSize(10, 10);
+		
+		
+		cp5.get(Button.class,"closeHelp").remove();
+		
+	}
+}
+
+void closeHelp () {
+	helpShow ( );
+}
 
 // Average waveform check box
 //
@@ -1255,7 +1361,7 @@ void avgShow( int value)
 	if (value == 1) {
 		avgShow = true;
 		avgArrayHasData = false;
-		avgDepth = max( parseInt(cp5.get(Textfield.class,"avgDepthTxt").getText()),2);
+		avgDepth = max( parseInt(cp5.get(Textfield.class,"avgDepthTxt").getText()),2);		
 	} else {
 		avgShow = false;
 		avgArrayHasData = false;
@@ -1540,6 +1646,10 @@ void mousePressed(MouseEvent evnt){
   // Only alow clicks in the graph
   // 
   if ( mouseX < graphX() ) return;   
+  
+  // Help open ? Just close it
+  //
+  if (showInfoScreen >0) { closeHelp();  return; }
   
   if (evnt.getCount() == 2) { 
 	DOUBLE_CLICK = true;  
