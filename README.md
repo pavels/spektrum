@@ -39,7 +39,7 @@ Progress so far
 - Added: VSWR calculation display for the antenna tunning guys (delta db from curosrs to VSWR).
 - Added: Reference graph save / display.
 - Added: Video averaging, useful on fast refresh (zoomed in).
-- Added: Minimum, Maximum hold (persistant display).
+- Added: Minimum, Maximum hold (persistent display).
 - Added: Median value display (middle value between Max and Min).
 
 Rearranged User interface: | Area/Line option 
