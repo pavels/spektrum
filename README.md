@@ -2,7 +2,7 @@
 
 ### "The SV mod" - UI improvements by SV1SGK and SV8ARJ. W.I.P.
 
-Download the latest test build (v0.14_26-SEP-18) from [here](https://www.dropbox.com/sh/c7vjbvm0mhi4xqu/AAAnuL9OkGZnQfcmRo2nRf8Ia?dl=0).
+Download the latest test build (v0.15_29-SEP-18) from [here](https://www.dropbox.com/sh/c7vjbvm0mhi4xqu/AAAnuL9OkGZnQfcmRo2nRf8Ia?dl=0).
 -------
 - Please report bugs/comments before our pull request. The rtlsdr.dll and rtlpower.dll included (in the lib folder) are from previous version of spektrum (v1.0.2). Latest versions (also included but renamed to ****.dll-latest) were giving us a grey screen (not working). YMMV.
 - If you get an error after selecting device see [this](https://github.com/SV8ARJ/spektrum/issues/1).
@@ -41,6 +41,10 @@ Progress so far
 - Added: Video averaging, useful on fast refresh (zoomed in).
 - Added: Minimum, Maximum hold (persistent display).
 - Added: Median value display (middle value between Max and Min).
+- Added: IF frequency basic support (only Upper band displays left to right in ascending order).
+- Added: Average graph can be saved as reference (if active when "save reference" is clicked).
+- Added: Vertical offset for reference graph (controled from knob).
+- Added: Quick help reference screen (mouse operation).
 
 Rearranged User interface: | Area/Line option 
 :-------------------------: | :-------------------------:
@@ -66,6 +70,9 @@ Min Max hold & Median: |  VHF band scan with Max hold
 :-------------------------: | :-------------------------:
 ![ Min Max hold & Median: ](https://github.com/SV8ARJ/spektrum/blob/master/screenshots/MinMaxMedian.png) | ![ VHF band scan with Max hold ](https://github.com/SV8ARJ/spektrum/blob/master/screenshots/MaxHoldScanVHF.png) 
 
+Basic support for IF. |  Average stored as reference and shifted up.
+:-------------------------: | :-------------------------:
+![ Basic support for IF ](https://github.com/SV8ARJ/spektrum/blob/master/screenshots/upDownConverter.png) | ![ Average stored as reference and shifted up. ](https://github.com/SV8ARJ/spektrum/blob/master/screenshots/referenceOffset.png) 
 
 
 Original readme starts here:
