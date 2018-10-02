@@ -58,6 +58,7 @@ void drawGraphMatt(double minValue, double maxValue, int minFreq, int maxFreq) {
 
   double xStep = (maxFreq - minFreq) / verticals / 10000.0;
   double xPos = minFreq / 10000.0;
+  
 
   double yStep = (maxValue - minValue) / horizontals;
   double yPos = maxValue;
@@ -70,8 +71,8 @@ void drawGraphMatt(double minValue, double maxValue, int minFreq, int maxFreq) {
 
   for (int i = 0; i<=verticals; i++) {
     line(graphX() + i * verticalSpacing, graphY(), graphX() + i * verticalSpacing, graphY() + graphHeight());
-    textAlign(CENTER); 
-    text(round((float)xPos) / 100.0 + "", graphX() + i * verticalSpacing, graphY() + graphHeight() + 20);
+    textAlign(CENTER);  //TODO optimize for efficiency and speed
+    text(   round((float) ifCorrectedFreq( (int) (xPos * 10000) )/10000.0 ) / 100.0 + "", graphX() + i * verticalSpacing, graphY() + graphHeight() + 20);
     xPos += xStep;
   }
 
