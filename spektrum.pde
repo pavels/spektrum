@@ -2,6 +2,7 @@ import controlP5.*;
 import rtlspektrum.Rtlspektrum;
 import java.io.FileWriter;           // added by Dave N 24 Aug 2017
 import java.util.*;
+import processing.serial.*;
 
 // The spektrum:: the SV mods -- SV1SGK and SV8ARJ UI improvements.
 // 
@@ -15,6 +16,8 @@ import java.util.*;
 // GRGNCK version 0.12-grg
 // GRGNCK version 0.13-grg
 // GRGNCK version 0.14-grg
+// GRGNCK version 0.15-grg
+// GRGNCK version 0.15-grg
 //
 // Changelog : 
 /*
@@ -42,17 +45,17 @@ v0.10
     Added: Mouse wheel in the centrer of the graph performs symetric zoom in/out
 v0.11
     Modified: Mouse behavior to (LMB=Left Mouse Button, RMB=Right, etc etc ):  
-    - _LMB Click_ : Nothing
-    - _LMB Drag_ on cursor: Move cursor
-    - _LMB Double Click_ : Zoom to selected area
-    - _RMB Click_ : position primary cursors to pointer
-    - _RMB Double Click_ : position primary pointers to mouse and send to edges secondary cursors
-    - _RMB Drag_ : define area with all cursors
+    - _LMB Click_ : Nothing.
+    - _LMB Drag_ on cursor: Move cursor.
+    - _LMB Double Click_ : Zoom to selected area.
+    - _RMB Click_ : position primary cursors to pointer.
+    - _RMB Double Click_ : position primary pointers to mouse and send to edges secondary cursors.
+    - _RMB Drag_ : define area with all cursors.
     - _MWheel Click_ : Nothing
-    - _MWheel Double Click_ : Full scales reset to max
-    - _MWHeel Drag_ : Move graph refedining min/max frequency and amplitude
-    - _MWHeel Up/Down_ : On Four edges of graph adjusts corresponding value (min/max freq or db)
-    - _MWHeel Up/Down_ : On middle of graph area zooms in/out the graph by symetrically changing all four limits
+    - _MWheel Double Click_ : Full scales reset to max.
+    - _MWHeel Drag_ : Move graph refedining min/max frequency and amplitude.
+    - _MWHeel Up/Down_ : On Four edges of graph adjusts corresponding value (min/max freq or db).
+    - _MWHeel Up/Down_ : On middle of graph area zooms in/out the graph by symetrically changing all four limits.
     - Added: Mouse Wheel zoom is pre-shown by rectangle on graph.
     - Added: Fill or Line for graph.
 v0.12
@@ -60,17 +63,28 @@ v0.12
     - Added: Reference graph (Save a graph in memory and have on screen for comparisons).
 v0.13
 	- Fixed: double click in controls area was doing the zoom operation.
-    - Added: Min Freq, Max Freq, rfGain, ifOffset ifType in config
+    - Added: Min Freq, Max Freq, rfGain, ifOffset ifType in config.
 	- Added: Averaging system based on video refresh rate.
 v0.14
-	- Fixed: Limited cursor movement
-	- UI re-arranged
-    - Added: Min/Max/Med persistent display
+	- Fixed: Limited cursor movement.
+	- UI re-arranged.
+    - Added: Min/Max/Med persistent display.
 v0.15
-	- Added: Quick Help screen
+	- Added: Quick Help screen.
+  - Added: IF frequency (only Upper band displays left to right in ascending order. Todo: reverse for lower).
+  - Added: Average graph can be saved as reference (if active on "save reference" click).
+  - Added: Vertical offset for reference graph (Controlled from knob)
+v0.16
+  - Modified: RF gain is now a knob plus 3 buttons for 1/3, 1/2 and 2/3 pre-sets.
+v0.17
+  - Modified: Created Tabs - Made room for more controls.
+  - Modified: Measurements box placement logic for "always in screen" positioning.
+    
 */
 
-String svVersion = "v0.15";
+String svVersion = "v0.17b";
+
+Serial myPort;       
 
 Rtlspektrum spektrumReader;
 ControlP5 cp5;
@@ -92,10 +106,34 @@ interface  CURSORS {
 
 int movingCursor = CURSORS.CUR_NONE;
 
+String tmpMessage;
+String tmpMessage1;
 
+// TABS
+//
+int tabActiveID = 1;
+String tabActiveName = "default";
+final int TAB_HEIGHT = 25;
+final int TAB_HEIGHT_ACTIVE = 30;
+
+final int TAB_GENERAL = 1;
+final int TAB_MEASURE = 2;
+final int TAB_SETTINGS = 3;
+final int TAB_SARK100 = 4;
+
+String tabLabels[] = {"global", "SETUP", "MEASURE", "SETTINGS","NOT YET","WHO ARE YOU"};
+	
 final int ITEM_GAIN = 1;
 final int ITEM_FREQUENCY = 2;
 final int ITEM_ZOOM = 3;
+final int ITEM_RF_GAIN = 4;
+
+// interface  IF_TYPES {
+//  int
+final int  IF_TYPE_NONE      = 0;
+final int  IF_TYPE_ABOVE     = 1;
+final int  IF_TYPE_BELOW     = 2;
+// }
 
 int timeToSet = 1;  // GRGNICK add
 int itemToSet = 0;  // GRGNICK add -- 1 is Gain, 2 is Frequency
@@ -107,6 +145,7 @@ int infoLineY = 0;
 int infoRectangle[] = {0,0,0,0};
 String infoText = "";
 
+int lastWidth =0;
 
 int zoomBackFreqMin = 0;
 int zoomBackFreqMax = 0;
@@ -133,7 +172,7 @@ int scaleMin = -110;
 int scaleMax = 40;
 
 int uiNextLineIndex = 0;
-int[] uiLines = new int[10];
+int[][] uiLines = new int[10][10];
 
 final int GRAPH_DRAG_NONE = 0;
 final int GRAPH_DRAG_STARTED = 1;
@@ -157,6 +196,7 @@ int cursorHorizontalTopY_Color = #ff80d5;
 int cursorDeltaColor = #00E010;
 ListBox deviceDropdown;
 DropdownList gainDropdown;
+DropdownList serialDropdown;
 
 
 String[] devices;
@@ -227,6 +267,8 @@ boolean refShow = false;	// If the reference graph is shown on screen
 boolean refStoreFlag = false; // Used to flag a save in draw()
 DataPoint[] refArray ; // Storage of reference graph
 boolean refArrayHasData = false;
+int refYoffset=0;
+
 
 // Average
 //
@@ -237,7 +279,7 @@ int avgDepth = 10;
 int avgNewSampleWeight = 1;
 boolean avgSamples = false; 
 
-// Persistant
+// Persistent
 //
 DataPoint[] perArray ; // Storage of Minimum and Maximum persiastant data graph
 boolean perShowMax = false;
@@ -250,6 +292,8 @@ int lastScanPosition = 0;
 int scanPosition = 0;
 int completeCycles = 0;	// How many times the scanner has finished the defined range
 
+color tabColorBachground = color(0, 70, 80);
+
 
 //=========================
 
@@ -261,9 +305,11 @@ void MsgBox( String Msg, String Title ){
 void setupStartControls(){
   int x, y;
   int width = 170;
-
+	
   x = 15;
-  y = 35;
+  y = 40;
+
+  // frameRate(30);
 
   deviceDropdown = cp5.addListBox("deviceDropdown")
                   .setBarHeight(20)
@@ -287,9 +333,40 @@ void setupControls(){
   int x, y;
   int width = 170;
 
-  x = 15;
-  y = 35;
+  // Setup TABS
+  //
+  // if you want to receive a controlEvent when
+  // a  tab is clicked, use activeEvent(true)
+  //
+  
+    cp5.addTab("default")
+   //.setColorBackground( tabColorBachground )
+   .setColorLabel(color(255))
+//   .setColorActive(color(255,128,0))
+	.activateEvent(true)
+     .setId(TAB_GENERAL)
+     .setLabel(tabLabels[TAB_GENERAL])
+	 .setHeight(TAB_HEIGHT_ACTIVE)
+    ;
+     background(color(#222324)); 
+// cp5.getTab("default")
+//    .setColorBackground( tabColorBachground )
+//	 .activateEvent(true)
+//    .setLabel("General")
+//    .setId( TAB_GENERAL )
+//    ;
 
+     
+     
+ 
+  // General tab (1) =================================================
+  //
+  x = 15;
+  y = 10;
+  uiNextLineIndex = 0;
+ 
+ uiLines[uiNextLineIndex++][TAB_GENERAL] = y;
+ y += 50;
  
   cp5.addTextfield("startFreqText")
     .setPosition(x, y)
@@ -341,77 +418,51 @@ void setupControls(){
     .setPosition(x, y)
     .setSize(60, 20)
     .setText(str(binStep))
-    .setAutoClear(false)
+    .setAutoClear(true)
     .getCaptionLabel().align(ControlP5.LEFT, ControlP5.TOP_OUTSIDE).setText("Bin size [Hz]")
     ;
     
   
   cp5.addButton("setRange")
     .setValue(0)
-    .setPosition(100, y)
+    .setPosition(95, y)
     .setSize(width/2, 20)
     .setColorBackground(buttonColor)
 	.setColorLabel(buttonColorText)
     .getCaptionLabel().align(ControlP5.CENTER, ControlP5.CENTER).setText("Set range")
     ;
     
-  uiLines[uiNextLineIndex++] = y;
-  	
   
-
-  // --------------------------------------------------------------------
-  //  
-  y += 50;
-
-  cp5.addTextfield("scaleMinText")
-    .setPosition(x, y)
-    .setSize(25, 20)
-    .setText(str(scaleMin))
-    .setAutoClear(false)
-    .getCaptionLabel().align(ControlP5.LEFT, ControlP5.TOP_OUTSIDE).setText("Lower")
-    ;
-
-  cp5.addTextfield("scaleMaxText")
-    .setPosition(20 + 30, y)
-    .setSize(25, 20)
-    .setText(str(scaleMax))
-    .setAutoClear(false)
-    .getCaptionLabel().align(ControlP5.LEFT, ControlP5.TOP_OUTSIDE).setText("Upper")
-    ;
-
-
-
-  cp5.addButton("setScale")
-    //.setValue(0)
-    .setPosition(100, y)
-    .setSize(width/2, 20)
-    .setColorBackground(buttonColor)
-	.setColorLabel(buttonColorText)
-    .getCaptionLabel().align(ControlP5.CENTER, ControlP5.CENTER).setText("Set scale")
-    ;
-  
-  // --------------------------------------------------------------------
+  // -------------------------------------------------------------------- IF offset
   //  
   y += 40;
   
-  cp5.addButton("autoScale")
-    //.setValue(0)
+  cp5.addTextfield("ifOffset")
     .setPosition(x, y)
-    .setSize(80, 20)
-	.setColorLabel(buttonColorText)
-    .setColorBackground(buttonColor).getCaptionLabel().align(ControlP5.CENTER, ControlP5.CENTER).setText("Auto scale")
+    .setSize(90, 20)
+    .setText(str(binStep))
+    .setAutoClear(true)
+    .getCaptionLabel().align(ControlP5.LEFT, ControlP5.TOP_OUTSIDE).setText("IF Frequency")
     ;
     
-  cp5.addButton("resetScale")
-    //.setValue(0)
-    .setPosition(x+90, y)
-    .setSize(80, 20)
-    .setColorBackground(buttonColor)
-	.setColorLabel(buttonColorText)
-    .getCaptionLabel().align(ControlP5.CENTER, ControlP5.CENTER).setText("Reset scale")
-    ;
+    // toggle vertical sursor on or off
+  cp5.addToggle("ifPlusToggle")
+   .setPosition(x  + 100 , y)
+   .setSize(20,20)
+   .getCaptionLabel().align(ControlP5.CENTER, ControlP5.TOP_OUTSIDE).setText("Above")
+   ;
+   
+    // toggle for how samples are shown - line / dots
+  cp5.addToggle("ifMinusToggle")
+     .setPosition(x + 140, y)
+     .setSize(20,20)
+     .getCaptionLabel().align(ControlP5.CENTER, ControlP5.TOP_OUTSIDE).setText("Below")
+     ;
     
-  uiLines[uiNextLineIndex++] = y;
+    
+
+	
+  uiLines[uiNextLineIndex++][TAB_GENERAL] = y;
  
   // --------------------------------------------------------------------
   //  
@@ -424,7 +475,7 @@ void setupControls(){
    .getCaptionLabel().align(ControlP5.CENTER, ControlP5.TOP_OUTSIDE).setText("Cursors")
    ;
    
-    // toggle for how samples are shown - line / dots
+  // toggle for how samples are shown - line / dots
   cp5.addToggle("drawSampleToggle")
      .setPosition(x + 70, y)
      .setSize(20,20)
@@ -463,155 +514,9 @@ void setupControls(){
      .getCaptionLabel().align(ControlP5.LEFT, ControlP5.TOP_OUTSIDE).setText("Sweep")
      ;  
 
-   uiLines[uiNextLineIndex++] = y;
-	 
-  // --------------------------------------------------------------------
-  //  
-  y += 35;
-  
-  cp5.addTextlabel("label")
-	.setText("GAIN")
-	.setPosition(x, y)
-	.setSize(20,20);
+   uiLines[uiNextLineIndex++][TAB_GENERAL] = y;
 
-  // --------------------------------------------------------------------
-  //  
-  y += 15;
-  
-  gainDropdown = cp5.addDropdownList("gainDropdown")
-                    .setBarHeight(20)
-                    .setItemHeight(20)
-                    .setPosition(x, y)
-                    .setSize(40, 60)
-                    ;
-  
-  gainDropdown.getCaptionLabel().align(ControlP5.LEFT, ControlP5.TOP_OUTSIDE).setText("");
-  
-  for (int i=0; i<gains.length; i++){
-    gainDropdown.addItem(str(gains[i]), gains[i]);
-  }
-  
-  //gainDropdown.setValue(0);
-  gainDropdown.getCaptionLabel().align(ControlP5.LEFT, ControlP5.TOP_OUTSIDE).setText(str(gains[0]));
- 
- 
- 
-   cp5.addToggle("refShow")
-     .setPosition(x + 60, y)
-     .setSize(20,20)
-     .setValue(false)
-     .getCaptionLabel().align(ControlP5.LEFT, ControlP5.TOP_OUTSIDE).setText("Show reference")
-     ;
- 
-   cp5.addButton("refSave")
-    .setPosition(x+width/2+5, y)
-    .setSize(width/2-5, 20)
-    .setColorBackground(buttonColor)
-	.setColorLabel(buttonColorText)
-    .getCaptionLabel().align(ControlP5.CENTER, ControlP5.CENTER).setText("Save Reference")
-    ;
-	
-	// ---------------------------
-	
-	cp5.addToggle("avgShow")
-     .setPosition(x + 60, y+40)
-     .setSize(20,20)
-     .setValue(false)
-     .getCaptionLabel().align(ControlP5.LEFT, ControlP5.TOP_OUTSIDE).setText("Video Average")
-     ;
-	
- 	cp5.addToggle("avgSamples")
-     .setPosition(x + 90, y+40)
-     .setSize(20,20)
-     .setValue(false)
-     .getCaptionLabel().align(ControlP5.LEFT, ControlP5.TOP_OUTSIDE).setText("+")
-     ;
- 
-	cp5.addTextfield("avgDepthTxt")
-    .setSize(30, 20)
-	.setPosition(x + 130, y+40)
-    .setText(str(avgDepth))
-    .setAutoClear(false)
-    .getCaptionLabel().align(ControlP5.LEFT, ControlP5.TOP_OUTSIDE).setText("Depth")
-    ;
-	
-	
-	
-	
-	
-	// --------------------------------------------------------------------
-    //  
-    y += 30;  
-	
-	cp5.addToggle("perShowMaxToggle")
-     .setPosition(x + 30, y+50)
-     .setSize(20,20)
-     .setValue(false)
-     .getCaptionLabel().align(ControlP5.LEFT, ControlP5.TOP_OUTSIDE).setText("Persistence")
-     ;
-	
-	cp5.addToggle("perShowMedToggle")
-     .setPosition(x + 60, y+50)
-     .setSize(20,20)
-     .setValue(false)
-     .getCaptionLabel().align(ControlP5.LEFT, ControlP5.TOP_OUTSIDE).setText("")
-     ;
-	
-
-	
- 	cp5.addToggle("perShowMinToggle")
-     .setPosition(x + 90, y+50)
-     .setSize(20,20)
-     .setValue(false)
-     .getCaptionLabel().align(ControlP5.LEFT, ControlP5.TOP_OUTSIDE).setText("+");
-	
-	cp5.addButton("perReset")
-    .setPosition(x + 130, y+50)
-    .setSize(40, 20)
-    .setColorBackground(buttonColor)
-	.setColorLabel(buttonColorText)
-    .getCaptionLabel().align(ControlP5.CENTER, ControlP5.CENTER).setText("RESET")
-    ;
-		
-	uiLines[uiNextLineIndex++] = y + 50;
-	
-		
-  // --------------------------------------------------------------------
-  //  
-  y += 100;  
-  
-  cp5.addButton("zoomBack")
-    .setPosition(x+width/2+5, y)
-    .setSize(width/2-5, 20)
-    .setColorBackground(buttonColor)
-	.setColorLabel(buttonColorText)
-    .getCaptionLabel().align(ControlP5.CENTER, ControlP5.CENTER).setText("Back")
-    ;
-  
-  cp5.addButton("zoomIn")
-    .setPosition(x, y)
-    .setSize(width/2-5, 20)
-    .setColorBackground(buttonColor)
-	.setColorLabel(buttonColorText)
-    .getCaptionLabel().align(ControlP5.CENTER, ControlP5.CENTER).setText("Zoom")
-    ;
-
-
-  // --------------------------------------------------------------------
-  //  
-  y += 30;
-  
-  cp5.addButton("toggleRelMode")
-    //.setValue(0)
-    .setPosition(x, y)                //.setPosition(x+width/4, y)
-    .setSize(width, 20)               //.setSize(width/2, 20)
-    .setColorBackground(#700000)  //.setColorBackground(buttonColor)
-    .getCaptionLabel().align(ControlP5.CENTER, ControlP5.CENTER).setText("Relative mode")
-    ;
-  
-  // --------------------------------------------------------------------
-  //  
-  y += 30;  
+  y = graphHeight() - 130;  
  
   cp5.addButton("freezeDisplay")
     //.setValue(0)
@@ -631,26 +536,330 @@ void setupControls(){
     .getCaptionLabel().align(ControlP5.CENTER, ControlP5.CENTER).setText("Exit")
     ;
    
+   uiLines[uiNextLineIndex++][TAB_GENERAL] = 0;
 
-  uiLines[uiNextLineIndex++] = 0;   
+   
+
+
+   // TAB MEASURE =========================================================
+   //
+
+ //  y=40;
+  
+  cp5.addTab(tabLabels[TAB_MEASURE])
+   .setColorBackground( tabColorBachground )
+//   .setColorLabel(color(255))
+//   .setColorActive(color(255,128,0))
+    .activateEvent(true)
+    .setId(TAB_MEASURE)
+	.setHeight(TAB_HEIGHT)
+    ;
+ 
+
+
+  // GAIN SCALE --------------------------------------------------------------------
+  //  
+  y = 10;
+  uiNextLineIndex = 0;
+  
+  uiLines[uiNextLineIndex++][TAB_MEASURE] = y;
+  
+  y += 50;
+
+  cp5.addTextfield("scaleMinText")
+    .setPosition(60, y)
+    .setSize(25, 20)
+    .setText(str(scaleMin))
+    .setAutoClear(false)
+    .getCaptionLabel().align(ControlP5.LEFT, ControlP5.TOP_OUTSIDE).setText("Lower")
+	;
+  cp5.getController("scaleMinText").moveTo(tabLabels[TAB_MEASURE]);
+	
+
+  cp5.addTextfield("scaleMaxText")
+    .setPosition(90, y)
+    .setSize(25, 20)
+    .setText(str(scaleMax))
+    .setAutoClear(false)
+    .getCaptionLabel().align(ControlP5.LEFT, ControlP5.TOP_OUTSIDE).setText("Upper")
+    ;
+  cp5.getController("scaleMaxText").moveTo(tabLabels[TAB_MEASURE]);
+  
+  cp5.addButton("setScale")
+    //.setValue(0)
+    .setPosition(120, y)
+    .setSize(60, 20)
+    .setColorBackground(buttonColor)
+	.setColorLabel(buttonColorText)
+    .getCaptionLabel().align(ControlP5.CENTER, ControlP5.CENTER).setText("Set scale")
+    ;
+  cp5.getController("setScale").moveTo(tabLabels[TAB_MEASURE]);
+  
+  // Gain dropdown
+  //
+  cp5.addTextlabel("label")
+  .setText("GAIN")
+  .setPosition(x, y-12)
+  .setSize(20,20);
+  cp5.getController("label").moveTo(tabLabels[TAB_MEASURE]);
+
+  // --------------------------------------------------------------------
+  //  
+  //y += 15;
+  
+
+  
+  /* gainDropdown = cp5.addDropdownList("gainDropdown")
+                    .setBarHeight(20)
+                    .setItemHeight(20)
+                    .setPosition(x, y)
+                    .setSize(40, 60)
+                    ;
+  
+  gainDropdown.getCaptionLabel().align(ControlP5.LEFT, ControlP5.TOP_OUTSIDE).setText("");
+  
+  for (int i=0; i<gains.length; i++){
+    gainDropdown.addItem(str(gains[i]), gains[i]);
+  }
+  
+  //gainDropdown.setValue(0);
+  gainDropdown.getCaptionLabel().align(ControlP5.LEFT, ControlP5.TOP_OUTSIDE).setText(str(gains[0]));
+  */
+
+	cp5.addKnob("rfGain")
+	   .setRange(gains[0],gains[gains.length-1])
+	   .setValue(50)
+	   .setPosition(x,y  )
+	   .setRadius(15)
+	   .setDragDirection(Knob.VERTICAL)
+	   .getCaptionLabel().align(ControlP5.LEFT, ControlP5.TOP_OUTSIDE).setText("")
+	   ;
+	cp5.getController("rfGain").moveTo(tabLabels[TAB_MEASURE]);
+	
+    cp5.addButton("rfGain01")
+    .setPosition(x, y+40)
+    .setSize(9, 20)
+	.setColorLabel(buttonColorText)
+    .setColorBackground(buttonColor).getCaptionLabel().align(ControlP5.CENTER, ControlP5.CENTER).setText("")
+    ;
+   cp5.addButton("rfGain02")
+    .setPosition(x+10, y+40)
+    .setSize(9, 20)
+	.setColorLabel(buttonColorText)
+    .setColorBackground(buttonColor).getCaptionLabel().align(ControlP5.CENTER, ControlP5.CENTER).setText("")
+    ;
+   
+   cp5.addButton("rfGain03")
+    .setPosition(x+20, y+40)
+    .setSize(9, 20)
+	.setColorLabel(buttonColorText)
+    .setColorBackground(buttonColor).getCaptionLabel().align(ControlP5.CENTER, ControlP5.CENTER).setText("")
+    ;
+  cp5.getController("rfGain01").moveTo(tabLabels[TAB_MEASURE]);
+  cp5.getController("rfGain02").moveTo(tabLabels[TAB_MEASURE]);
+  cp5.getController("rfGain03").moveTo(tabLabels[TAB_MEASURE]);
+  
+  
+  // --------------------------------------------------------------------
+  //  
+  y += 40;
+  
+  cp5.addButton("autoScale")
+    //.setValue(0)
+    .setPosition(60, y)
+    .setSize(55, 20)
+	.setColorLabel(buttonColorText)
+    .setColorBackground(buttonColor).getCaptionLabel().align(ControlP5.CENTER, ControlP5.CENTER).setText("Auto scale")
+    ;
+  cp5.getController("autoScale").moveTo(tabLabels[TAB_MEASURE]);
+	
+  cp5.addButton("resetScale")
+    //.setValue(0)
+    .setPosition(120, y)
+    .setSize(60, 20)
+    .setColorBackground(buttonColor)
+	.setColorLabel(buttonColorText)
+    .getCaptionLabel().align(ControlP5.CENTER, ControlP5.CENTER).setText("Reset scale")
+    ;
+  cp5.getController("resetScale").moveTo(tabLabels[TAB_MEASURE]);
+
+
+
+  uiLines[uiNextLineIndex++][TAB_MEASURE] = y;
+
+
+ 
+   // REF, AVG, PERSISTENT --------------------------------------------------------------------
+   //  
+   y += 50;
+ 		   
+	// ---------------------------
+	
+	cp5.addToggle("avgShow")
+     .setPosition(x , y)
+     .setSize(20,20)
+     .setValue(false)
+     .getCaptionLabel().align(ControlP5.LEFT, ControlP5.TOP_OUTSIDE).setText("Video Average")
+     ;
+cp5.getController("avgShow").moveTo(tabLabels[TAB_MEASURE]);
+	
+ 	cp5.addToggle("avgSamples")
+     .setPosition(x + 70, y)
+     .setSize(20,20)
+     .setValue(false)
+     .getCaptionLabel().align(ControlP5.LEFT, ControlP5.TOP_OUTSIDE).setText("Freeze")
+     ;
+cp5.getController("avgSamples").moveTo(tabLabels[TAB_MEASURE]);
+ 
+	cp5.addTextfield("avgDepthTxt")
+    .setSize(30, 20)
+	.setPosition(x + 130, y)
+    .setText(str(avgDepth))
+    .setAutoClear(true)
+    .getCaptionLabel().align(ControlP5.LEFT, ControlP5.TOP_OUTSIDE).setText("Depth")
+    ;
+cp5.getController("avgDepthTxt").moveTo(tabLabels[TAB_MEASURE]);
+	
+  uiLines[uiNextLineIndex++][TAB_MEASURE] = y;
+  y += 15;	
+	
+	// ------- REFERENCE
+	//
+	y += 40;
+	
+ cp5.addToggle("refShow")
+     .setPosition(x , y)
+     .setSize(20,20)
+     .setValue(false)
+     .getCaptionLabel().align(ControlP5.LEFT, ControlP5.TOP_OUTSIDE).setText("Show reference")
+     ;
+ cp5.getController("refShow").moveTo(tabLabels[TAB_MEASURE]);
+ 
+   cp5.addButton("refSave")
+    .setPosition(50, y)
+    .setSize(width/2-5, 20)
+    .setColorBackground(buttonColor)
+	.setColorLabel(buttonColorText)
+    .getCaptionLabel().align(ControlP5.CENTER, ControlP5.CENTER).setText("Save Reference")
+    ;
+cp5.getController("refSave").moveTo(tabLabels[TAB_MEASURE]);
+	
+	
+  cp5.addKnob("refYoffset")
+	   .setRange(-graphHeight(),graphHeight())
+	   .setValue(50)
+	   .setPosition(150,y-10 )
+	   .setRadius(15)
+	   .setDragDirection(Knob.VERTICAL)
+	   .getCaptionLabel().align(ControlP5.LEFT, ControlP5.TOP_OUTSIDE).setText("")
+	   ;
+cp5.getController("refYoffset").moveTo(tabLabels[TAB_MEASURE]);
+	
+	
+	
+	// --------------------------------------------------------------------
+    // 
+  uiLines[uiNextLineIndex++][TAB_MEASURE] = y;
+  y += 15;	
+    y += 40;  
+	
+	cp5.addToggle("perShowMaxToggle")
+     .setPosition(x, y)
+     .setSize(20,20)
+     .setValue(false)
+     .getCaptionLabel().align(ControlP5.LEFT, ControlP5.TOP_OUTSIDE).setText("Persistence")
+     ;
+cp5.getController("perShowMaxToggle").moveTo(tabLabels[TAB_MEASURE]);
+	
+	cp5.addToggle("perShowMedToggle")
+     .setPosition(x + 35, y)
+     .setSize(20,20)
+     .setValue(false)
+     .getCaptionLabel().align(ControlP5.LEFT, ControlP5.TOP_OUTSIDE).setText("")
+     ;
+  cp5.getController("perShowMedToggle").moveTo(tabLabels[TAB_MEASURE]);	
+
+	
+ 	cp5.addToggle("perShowMinToggle")
+     .setPosition(x + 70, y)
+     .setSize(20,20)
+     .setValue(false)
+     .getCaptionLabel().align(ControlP5.LEFT, ControlP5.TOP_OUTSIDE).setText("");
+  cp5.getController("perShowMinToggle").moveTo(tabLabels[TAB_MEASURE]);
+	
+	cp5.addButton("perReset")
+    .setPosition(x + 130, y)
+    .setSize(40, 20)
+    .setColorBackground(buttonColor)
+	.setColorLabel(buttonColorText)
+    .getCaptionLabel().align(ControlP5.CENTER, ControlP5.CENTER).setText("RESET")
+    ;
+  cp5.getController("perReset").moveTo(tabLabels[TAB_MEASURE]);
+		
+  uiLines[uiNextLineIndex++][TAB_MEASURE] = y;
+	
+		
+  // --------------------------------------------------------------------
+  //  
+  y += 50;  
+  
+  cp5.addButton("zoomBack")
+    .setPosition(x+width/2+5, y)
+    .setSize(width/2-5, 20)
+    .setColorBackground(buttonColor)
+	.setColorLabel(buttonColorText)
+    .getCaptionLabel().align(ControlP5.CENTER, ControlP5.CENTER).setText("Back")
+    ;
+  cp5.getController("zoomBack").moveTo(tabLabels[TAB_MEASURE]);
+  
+  cp5.addButton("zoomIn")
+    .setPosition(x, y)
+    .setSize(width/2-5, 20)
+    .setColorBackground(buttonColor)
+	.setColorLabel(buttonColorText)
+    .getCaptionLabel().align(ControlP5.CENTER, ControlP5.CENTER).setText("Zoom")
+    ;
+cp5.getController("zoomIn").moveTo(tabLabels[TAB_MEASURE]);
+
+  // --------------------------------------------------------------------
+  //  
+  y += 30;
+  
+  cp5.addButton("toggleRelMode")
+    //.setValue(0)
+    .setPosition(x, y)                //.setPosition(x+width/4, y)
+    .setSize(width, 20)               //.setSize(width/2, 20)
+    .setColorBackground(#700000)  //.setColorBackground(buttonColor)
+    .getCaptionLabel().align(ControlP5.CENTER, ControlP5.CENTER).setText("Relative mode")
+    ;
+  cp5.getController("toggleRelMode").moveTo(tabLabels[TAB_MEASURE]);
+  
+  
+  // --------------------------------------------------------------------
+  //  
+  y = graphHeight() - 130;  
+ 
+
+   
+
+  uiLines[uiNextLineIndex++][TAB_GENERAL ] = 0;   
   
     cp5.addButton("helpShow")
     //.setValue(0)
-    .setPosition(60, y+130)
+    .setPosition(60, y+110)
     .setSize(80, 20)
     .setColorBackground(buttonColor)
 	.setColorLabel(buttonColorText)
     .getCaptionLabel().align(ControlP5.CENTER, ControlP5.CENTER).setText("HELP")
     ;
-  
+  cp5.getController("helpShow").moveTo("global");
   
   cp5.addTextarea("textArea01")
     .setPosition(0, 0)
     .setSize(1, 1)
     .setText("")
     ;
-    
-    
+     
   // Keep the down left position for the Delta label
   deltaLabelsYWaiting = y + 60;
   deltaLabelsXWaiting = x + 10;
@@ -661,12 +870,172 @@ void setupControls(){
   // Min/Max labels position (Down left)
   minMaxTextY = height-50;
  
+ 	if (ifType == IF_TYPE_ABOVE) {
+		cp5.get(Toggle.class,"ifMinusToggle").setValue(0);
+		cp5.get(Toggle.class,"ifPlusToggle").setValue(1);
+	}
+	else if (ifType == IF_TYPE_BELOW ) {
+		cp5.get(Toggle.class,"ifMinusToggle").setValue(1);
+		cp5.get(Toggle.class,"ifPlusToggle").setValue(0); 
+	}
+
+	cp5.get(Textfield.class,"ifOffset").setText(str(ifOffset));
+	
+	
+
+
+// TAB MR100 ===========================================================
+//
+  cp5.addTab(tabLabels[TAB_SARK100])
+   .setColorBackground( tabColorBachground )
+   .setColorLabel(color(255))
+//   .setColorActive(color(255,128,0))
+	.activateEvent(true)
+     .setId(TAB_SARK100)
+	 .setHeight(TAB_HEIGHT)
+    ;
+	
+	
+	
+	x = 15;
+	y = 10;
+	uiNextLineIndex=0;
+	uiLines[uiNextLineIndex++][TAB_SARK100] = y;
+
+	y += 40;
+	
+	serialDropdown = cp5.addDropdownList("serialPort")
+                  .setBarHeight(20)
+                  .setItemHeight(20)
+                  .setPosition(x, y)
+                  .setSize(80, 80);
+ 
+  serialDropdown.getCaptionLabel().align(ControlP5.LEFT, ControlP5.TOP_OUTSIDE).setText("Select port");
+  cp5.getController("serialPort").moveTo(tabLabels[TAB_SARK100]);
+  
+  printArray(Serial.list());
+  
+  for (int i=0; i<Serial.list().length; i++){
+    serialDropdown.addItem(Serial.list()[i], i);
+  } 
+
+  // y+=40;
+  
+  cp5.addButton("openSerial")
+    //.setValue(0)
+    .setPosition(width-30, y)
+    .setSize(40, 20)
+    .setColorBackground(buttonColor)
+	.setColorLabel(buttonColorText)
+    .getCaptionLabel().align(ControlP5.CENTER, ControlP5.CENTER).setText("Open")
+    ;
+	cp5.getController("openSerial").moveTo(tabLabels[TAB_SARK100]);
+	
+	uiLines[uiNextLineIndex++][TAB_SARK100] = 0;
+	
+	
+	//cp5.getTab("default").setColorBackground( tabColorBachground );
+
   println("Reached end of setupControls.");
   
-  startingupBypassSaveConfiguration = false;//Ready laoding... now you are able to save..
+  startingupBypassSaveConfiguration = false;//Ready loading... now you are able to save..
+  
+  // arrange controller in separate tabs
+  // Tab 'global' is a tab that lies on top of any 
+  // other tab and is always visible
+  //
+  // cp5.getController("sliderValue").moveTo("extra");
+  // cp5.getController("slider").moveTo(tabLabels[TAB_MEASURE]);
+    
   
 }
 
+// Generic event handler for controls
+//
+ void controlEvent(ControlEvent theEvent) {
+ 	
+	if (theEvent.isTab()) {
+		// println("got an event from tab : "+theEvent.getTab().getName()+" with id "+theEvent.getTab().getId());
+		cp5.getTab(tabActiveName).setHeight(TAB_HEIGHT);
+		tabActiveID = theEvent.getTab().getId();
+		theEvent.getTab().setHeight(TAB_HEIGHT_ACTIVE);
+		tabActiveName = theEvent.getTab().getName();
+  		
+    // println( tabLabels[tabActiveID] );
+		// println(tabActiveName);
+			
+	}
+
+ 	// if(theEvent.isController()) { 
+ 	// 	 // println(theEvent.getController().getName());
+ 	// 	 if(theEvent.getController().getName()=="rfGain") {
+ 	// 		println("RF GAIN CLICKED");		
+ 	// 	 }
+ 	// }	
+ }
+ 
+ public void openSerial() {
+		
+		println( cp5.getController("serialPort").getValue());
+		println( cp5.get(DropdownList.class,"serialPort").getValue());
+		
+}
+
+public void rfGain(int gainValue) {
+	// println( gainValue);
+	spektrumReader.setGain(gainValue);
+	 
+} 
+
+public void rfGain01(int gainValue) { 
+	//println( (int) (( gains[0] + ( gains[gains.length-1] - gains[0]) / 3 )  ) );
+	int tpmInt = (int) (( gains[0] + ( gains[gains.length-1] - gains[0]) * 1 / 3 )  ) ;
+	rfGain( tpmInt ); 
+	cp5.get(Knob.class,"rfGain").setValue(tpmInt);
+}
+public void rfGain02(int gainValue) { 
+	int tpmInt = (int) (( gains[0] + ( gains[gains.length-1] - gains[0]) / 2 )  ) ;
+	rfGain( tpmInt ); 
+	cp5.get(Knob.class,"rfGain").setValue(tpmInt);
+}
+
+public void rfGain03(int gainValue) { 
+	int tpmInt = (int) (( gains[0] + ( gains[gains.length-1] - gains[0]) *2 / 3 )  ) ;
+	rfGain( tpmInt ); 
+	cp5.get(Knob.class,"rfGain").setValue(tpmInt);
+}
+
+// IF settings UI
+//
+public void ifPlusToggle(int theValue){
+  if(setupDone){
+    if(theValue > 0){
+      cp5.get(Toggle.class,"ifMinusToggle").setValue(0);
+	  ifType = IF_TYPE_ABOVE;
+	  ifOffset  = parseInt(cp5.get(Textfield.class,"ifOffset").getText());
+    }else{
+		ifType = IF_TYPE_NONE;
+	}
+	saveConfig();
+  }
+}public void ifMinusToggle(int theValue){
+  if(setupDone){
+    if(theValue > 0){
+		cp5.get(Toggle.class,"ifPlusToggle").setValue(0);
+		ifType = IF_TYPE_BELOW;
+		ifOffset  = parseInt(cp5.get(Textfield.class,"ifOffset").getText());
+    }else{
+		ifType = IF_TYPE_NONE;
+    }
+  }
+  saveConfig();
+}
+
+
+
+
+// Min/Max UI
+//
 public void offsetToggle(int theValue){
   if(setupDone){
     if(theValue > 0){
@@ -686,6 +1055,7 @@ public void minmaxToggle(int theValue){
     }
   }
 }
+
 
 public void sweepToggle(int theValue){
   if(setupDone){
@@ -725,6 +1095,15 @@ public void perShowMedToggle(int theValue){
       perShowMed = false;
     }
   }
+}
+
+public int ifCorrectedFreq( int inFreq ){
+	int tmpFreq=inFreq;
+	  
+  if (ifType == IF_TYPE_ABOVE) tmpFreq -= ifOffset;
+  else if (ifType == IF_TYPE_BELOW) tmpFreq = ifOffset - tmpFreq;
+  
+  return tmpFreq;
 }
 
 public void setRange(int theValue){
@@ -935,6 +1314,19 @@ void draw(){
     return;
   }
 
+  if ( width != lastWidth )
+  {
+	  refShow = false;
+	  //refArrayHasData = false;
+	  avgShow = false;
+	  //avgArrayHasData = false;
+	  println("RESIZE DETECTED");
+	  lastWidth = width;
+	  cp5.get(Toggle.class,"refShow").setValue(0);
+	  cp5.get(Toggle.class,"avgShow").setValue(0);
+	  return;
+  }
+  
   if(relMode == 1){
     cp5.get(Button.class,"toggleRelMode").getCaptionLabel().setText("Set relative");
     spektrumReader.setRelativeMode(Rtlspektrum.RelativeModeType.RECORD);
@@ -973,28 +1365,38 @@ void draw(){
   if ( !refArrayHasData && refShow  ) { 
 	refArray = new DataPoint[scaledBuffer.length]; 
 	refShow = false; 
-	cp5.get(Toggle.class,"refShow").setValue(0);
+	cp5.get(Toggle.class,"refShow").setValue(0);	
+	
   }
   if ( refShow && refArray.length != scaledBuffer.length )  {
 	  refStoreFlag = true;
 	  refShow = false;
   }
   if ( refStoreFlag )  {	
-		refArray = new DataPoint[scaledBuffer.length];
-		println("STORE size: " + refArray.length );
-		arrayCopy( scaledBuffer, refArray );
+		
+		// println("STORE size: " + refArray.length );
+		
+		if (avgShow && avgArrayHasData ) {
+			refArray = new DataPoint[avgArray.length];
+			arrayCopy( avgArray, refArray );
+			cp5.get(Toggle.class,"avgShow").setValue(0);
+		} else {
+			refArray = new DataPoint[scaledBuffer.length];
+			arrayCopy( scaledBuffer, refArray );
+		}
 		refArrayHasData = true;
 		refStoreFlag = false;
 		refShow = true;
 		cp5.get(Toggle.class,"refShow").setValue(1);
+		cp5.get(Knob.class,"refYoffset").setValue(0);
   }  
   
   // Average graph 
   //
   if ( !avgArrayHasData && avgShow  ) { 
-	avgArray = new DataPoint[scaledBuffer.length]; 
-	//avgShow = false; 
-	// cp5.get(Toggle.class,"avgShow").setValue(0);
+	  avgArray = new DataPoint[scaledBuffer.length]; 
+  	//avgShow = false; 
+  	// cp5.get(Toggle.class,"avgShow").setValue(0);
   }
   if ( avgShow && avgArray.length != scaledBuffer.length )  {
 	  avgArray = new DataPoint[scaledBuffer.length];
@@ -1054,11 +1456,13 @@ void draw(){
   
 	color tmpColorGraph = color( 200,200,40 );
 	color tmpColorAvg = color( 10,200,40 );
+	color tmpColorRef = color( 51, 51, 255 );
 	//color tmpColorPerMax = color( 255, 0, 102 );
 	//color tmpColorPerMin = color( 200, 0, 99 );
 	color tmpColorPerMax = color( 180, 180, 180 );
 	color tmpColorPerMin = color( 160, 160, 160 );
 	color tmpColorPerMed = color( 51, 204, 255 );
+	color tmpColorFill = color ( 102, 102, 0 );
 	
 	
   int tmpAlpha = 255;
@@ -1076,7 +1480,7 @@ void draw(){
 	if (avgShow && avgArrayHasData ) { avgPoint = avgArray[i]; }
 	if ((perShowMin || perShowMax || perShowMed ) && perArrayHasData ) { perPoint = perArray[i]; }
 	
-    if (point == null ) continue;
+  if (point == null ) continue;
 	if (avgPoint == null) avgArrayHasData = false;
 	if (perPoint == null) perArrayHasData = false;
 	
@@ -1085,7 +1489,7 @@ void draw(){
 	// MAIN graph
 	//
 	if ( drawFill ) {
-		graphDrawFill(lastPoint.x, (int)((lastPoint.yAvg - scaleMin) * scaleFactor), point.x, (int)((point.yAvg - scaleMin) * scaleFactor), #fcf400, 50);  
+		graphDrawFill(lastPoint.x, (int)((lastPoint.yAvg - scaleMin) * scaleFactor), point.x, (int)((point.yAvg - scaleMin) * scaleFactor), tmpColorFill, 255);  // #fcf400
 	}		
 	
 	graphDrawLine(lastPoint.x, (int)((lastPoint.yAvg - scaleMin) * scaleFactor), point.x, (int)((point.yAvg - scaleMin) * scaleFactor),tmpColorGraph , tmpAlpha);
@@ -1099,7 +1503,8 @@ void draw(){
 	// Reference graph
 	//	
 	if (refShow){
-		graphDrawLine(refLastPoint.x, (int)((refLastPoint.yAvg - scaleMin) * scaleFactor), refPoint.x, (int)((refPoint.yAvg - scaleMin) * scaleFactor), #1080A0, 255);
+		graphDrawLine(refLastPoint.x, ((int)((refLastPoint.yAvg - scaleMin) * scaleFactor) )  - refYoffset , 
+						refPoint.x,   ( (int)((refPoint.yAvg - scaleMin) * scaleFactor)) - refYoffset, tmpColorRef, 255);
 	}
 
 	// Average graph
@@ -1115,7 +1520,9 @@ void draw(){
 		{	
 			if ( !avgSamples  )
 			{
-				avgArray[i].yAvg = avgArray[i].yAvg - (avgArray[i].yAvg / avgDepth ) +  (scaledBuffer[i].yAvg / (float)avgDepth);
+        // if (scaledBuffer[i].yAvg > 1000) println(scaledBuffer[i].yAvg);
+				if (scaledBuffer[i].yAvg < 1000) 
+        avgArray[i].yAvg = avgArray[i].yAvg - (avgArray[i].yAvg / avgDepth ) +  (scaledBuffer[i].yAvg / (float)avgDepth);
 			}
 			else if ( completeCycles > 0) {
 				avgArray[i].yAvg = avgArray[i].yAvg - (avgArray[i].yAvg / avgDepth ) +  (scaledBuffer[i].yAvg / (float)avgDepth);
@@ -1183,18 +1590,31 @@ void draw(){
   fill(#222324);
   stroke(#D5921F);
     
+  // Original Min/Max
+  //
   textAlign(LEFT); 
   fill(#C23B22);
   text("Min: " + String.format("%.2f", minFrequency / 1000) + "kHz " + String.format("%.2f", minValue) + "dB", minMaxTextX +5, minMaxTextY+20);
   fill(#03C03C);
   text("Max: " + String.format("%.2f", maxFrequency / 1000) + "kHz " + String.format("%.2f", maxValue) + "dB", minMaxTextX +5, minMaxTextY+40);
  
+ 
+  // Cursors and measurements
+  //
   if(vertCursorToggle){
     setVertCursor();
     drawVertCursor();
   }
   
+  
+  // UI seperator lines
+  //
+  for ( uiNextLineIndex = 0; uiLines[uiNextLineIndex][tabActiveID] != 0 ; uiNextLineIndex++ ) 
+    line( 5, uiLines[uiNextLineIndex][tabActiveID] + 30 ,  195, uiLines[uiNextLineIndex][tabActiveID]  + 30);
+  
  
+  // Frequency scan detection (complete cycles through spectrum range)
+  //
   scanPosition = spektrumReader.getScanPos();
   
   if ( lastScanPosition != scanPosition ) {
@@ -1204,6 +1624,9 @@ void draw(){
   
   }
   
+ 
+  // Sweep indicator position (vertical line)
+  //
   if(sweepDisplay){
     int scanPos = (int)(((float)graphWidth() / (float)buffer.length) * (float)scanPosition);
     sweep(scanPos, #FFFFFF, 64);
@@ -1291,10 +1714,11 @@ void helpShow ( ) {
 	Textarea tmpTA=cp5.get(Textarea.class,"textArea01");
 	PFont pfont = createFont("Arial",15,true); // use true/false for smooth/no-smooth
     ControlFont font = new ControlFont(pfont,15,50);
-	String tmpMessage;
 
-	tmpMessage = "\nSPEKTRUM - Quick reference.\n";
-	tmpMessage+= "\n\n";
+  tmpTA.moveTo("global");
+  
+	tmpMessage = "SPEKTRUM - Quick reference.\n";
+	tmpMessage+= "\n";
 	tmpMessage+= "Mouse operation :-                                                                          \n" ;
 	tmpMessage+= "\n";
 	tmpMessage+= "Left Mouse Button :                                                                         \n" ;
@@ -1304,26 +1728,34 @@ void helpShow ( ) {
 	tmpMessage+= "Right Mouse Button :                                                                        \n" ;
 	tmpMessage+= "- Click : Move primary cursors to mouse pointer                                             \n" ;
 	tmpMessage+= "- Double click : Move primary cursors to pointer, store away secondary cursors.             \n" ;
-	tmpMessage+= "- Click and Drag : Define an area with promary and secindary cursors. Diff. measurements.   \n" ;
+	tmpMessage+= "- Click and Drag : Define an area with primary and secondary cursors. Diff. measurements.   \n" ;
 	tmpMessage+= "\n";
 	tmpMessage+= "Mouse wheel :                                                                               \n" ;
-	tmpMessage+= "- Double click : Reset full ranges (Aplitude and Frequency)                                 \n" ;
+	tmpMessage+= "- Double click : Reset full ranges (Amplitude and Frequency)                                \n" ;
 	tmpMessage+= "- Click and Drag : Move graph in X/Y preserving X/Y delta ranges (Pan graph)                \n" ;
 	tmpMessage+= "- Rotate on top/bottom of graph to change corresponding Amplitude limit                     \n" ;
 	tmpMessage+= "- Rotate on left/right of graph to change corresponding frequency limit                     \n" ;
-	tmpMessage+= "- Rotate in middle of graph to xhange zoom level (X and Y)                                  \n" ;
+	tmpMessage+= "- Rotate in middle of graph to change zoom level (X and Y)                                  \n" ;
 	tmpMessage+= "\n\n";
-	tmpMessage+= "\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n";
 	tmpMessage+= "\n";
-	tmpMessage+= "Original spektrum : https://github.com/pavels/spektrum\n";
-	tmpMessage+= "SV mods (" + svVersion + ")  : https://github.com/SV8ARJ/spektrum\n";
-	tmpMessage+= "";	
+	
+	tmpMessage1 = "Tips\n\n";
+	tmpMessage1+= "- On rotary knobs (eg RF gain) left click and drag up/down for fast adjustment. \n";
+	tmpMessage1+= "- An average graph may also be saved as reference if it is active when the 'SAVE REFERENCE'\n";
+	tmpMessage1+= "  Button is clicked        \n";
+	tmpMessage1+= "\n";
+	tmpMessage1+= "\n";
+	tmpMessage1+= "\n\n\n\n\n\n\n\n\n\n\n\n\n";
+	tmpMessage1+= "\n";
+	tmpMessage1+= "Original spektrum : https://github.com/pavels/spektrum\n";
+	tmpMessage1+= "SV mods (" + svVersion + ")  : https://github.com/SV8ARJ/spektrum\n";
+	tmpMessage1+= "";	
 	
 	if ( showInfoScreen == 0){
 		tmpTA.setPosition( graphX() + 10 , graphY() + 10 );
 		tmpTA.setSize(graphWidth() - 20, graphHeight() - 20);
 		tmpTA.setColorBackground( #808080);
-		tmpTA.setText(tmpMessage);
+		tmpTA.setText(tmpMessage + tmpMessage1);
 		tmpTA.setFont(font);
 		
 		// Close button
@@ -1341,7 +1773,7 @@ void helpShow ( ) {
 	else{
 		showInfoScreen = 0;
 		tmpTA.clear();
-		tmpTA.setPosition( 0 , 0 );
+		tmpTA.setPosition( 0 , -20 );
 		tmpTA.setSize(10, 10);
 		
 		
@@ -1429,6 +1861,11 @@ void loadConfig(){
   fullRangeMin = table.getInt(0, "minFreq"); 
   fullRangeMax = table.getInt(0, "maxFreq");
   
+  ifOffset = table.getInt(0, "ifOffset");
+  ifType = table.getInt(0, "ifType");
+  
+
+  
   //Protection 
   if (binStep < binStepProtection) binStep = binStepProtection;
    
@@ -1443,6 +1880,7 @@ void loadConfig(){
   println("startFreq = " + startFreq + " stopFreq = " + stopFreq + " binStep = " + binStep + " scaleMin = " + 
       scaleMin + " scaleMax = ", scaleMax + " rfGain = " + rfGain + " fullRangeMin = " + fullRangeMin + "  fullRangeMax = " + fullRangeMax + 
       " ifOffset = " + ifOffset + " ifType = " + ifType);
+
 
  
 }   
@@ -1531,11 +1969,11 @@ void updateVertCursorText (){
 void drawVertCursor(){  
   float xBand;
   float xCur;
-  float xPlot; 
-  xBand = (stopFreq - startFreq); 
+  float xPlot;
+  xBand = (stopFreq - startFreq);
   
   /*   Remove RED cursor
-  float xBand = (stopFreq - startFreq);   
+  float xBand = (stopFreq - startFreq);
   float xCur = (vertCursorFreq - startFreq);
   float xPlot = (xCur/xBand)* (graphWidth() + 230 - graphX());  // adjust cursor scale here!
   stroke(#FF0000);
@@ -1550,6 +1988,7 @@ void drawVertCursor(){
   
   //GRGNICK Cursors
   //
+  int tmpInt;
   int freqLeft;
   int freqRight;
   freqLeft = startFreq + hzPerPixel() * (cursorVerticalLeftX - graphX());
@@ -1564,14 +2003,17 @@ void drawVertCursor(){
   fill(cursorVerticalLeftX_Color);
   line(cursorVerticalLeftX, graphY(), cursorVerticalLeftX, graphY()+graphHeight());
   textAlign(CENTER);
-  text(numToStr(freqLeft/1000)  + " kHz", cursorVerticalLeftX-10, graphY()  - 5);
+  
+
+  
+  text(numToStr(ifCorrectedFreq(freqLeft) /1000)  + " kHz", cursorVerticalLeftX-10, graphY()  - 5);
   
   // RIGHT
   stroke(cursorVerticalRightX_Color);
   fill(cursorVerticalRightX_Color);
   line(cursorVerticalRightX, graphY(), cursorVerticalRightX, graphY()+graphHeight());
   textAlign(CENTER);
-  text(numToStr(freqRight/1000)  + " kHz", cursorVerticalRightX-10, graphY()  - 5);
+  text(numToStr(ifCorrectedFreq(freqRight)/1000)  + " kHz", cursorVerticalRightX-10, graphY()  - 5);
   
   // BOTTOM
   stroke(cursorHorizontalBottomY_Color);
@@ -1595,21 +2037,26 @@ void drawVertCursor(){
   tmpDdb = abs(scaleBottom - scaleTop);
   tmpVSWR = (pow(10 , (tmpDdb / 20 )) +1 ) / ( pow( 10, (tmpDdb / 20))  - 1  ) ;
   
+  int labelXOffset = 0;
+  int labelYOffset = 0;
+  if ( deltaLabelsX > graphX() -40 ) {
+    if ( deltaLabelsX > graphWidth() / 2 ) labelXOffset = -140; else labelXOffset = 50; 
+    if ( deltaLabelsY > graphHeight() / 2 ) labelYOffset = -30; else labelYOffset = 60; 		
+  }
   textAlign(LEFT);
   fill(cursorDeltaColor);
-  text("Δx : " + numToStr((freqRight - freqLeft)/1000)  + " kHz" , deltaLabelsX, deltaLabelsY ) ;
-  text("Δy : " + String.format("%.1f",scaleBottom - scaleTop) + " db" , deltaLabelsX, deltaLabelsY + 20 );
+  text("Δx : " + numToStr((freqRight - freqLeft)/1000)  + " kHz" , deltaLabelsX + labelXOffset, deltaLabelsY + labelYOffset );
+  text("Δy : " + String.format("%.1f",scaleBottom - scaleTop) + " db" , deltaLabelsX + labelXOffset, deltaLabelsY + 20 + labelYOffset );
   textSize(12);    
-  text("VSWR: 1 : " + String.format("%.3f",tmpVSWR), deltaLabelsX, deltaLabelsY + 38 );	   
+  text("VSWR: 1 : " + String.format("%.3f",tmpVSWR), deltaLabelsX + labelXOffset, deltaLabelsY + 38 + labelYOffset );	   
   //text("Δf " + numToStr(freqRight - freqLeft)  + " Hz", cursorVerticalLeftX+((cursorVerticalRightX-cursorVerticalLeftX)/2), graphY()  + 12);
   //text("Δs " + numToStr(scaleBottom - scaleTop)  + " db", graphX()+graphWidth()-20,    cursorHorizontalTopY+((cursorHorizontalBottomY-cursorHorizontalTopY)/2)    );
   
   textSize(12); 
   noFill(); stroke(#808080);
-  rect( deltaLabelsX - 10, deltaLabelsY - 20 , 170,65);
+  rect( deltaLabelsX - 10 + labelXOffset, deltaLabelsY - 20 + labelYOffset , 170,65);
   
-  for ( uiNextLineIndex = 0; uiLines[uiNextLineIndex] != 0 ; uiNextLineIndex++ ) 
-	line( 5, uiLines[uiNextLineIndex] + 30 ,  195, uiLines[uiNextLineIndex]  + 30);
+
   
 }
 
@@ -1918,6 +2365,7 @@ void mouseWheel(MouseEvent event){
   final int FREQ_RIGHT = 8;
   final int GRAPH_ZOOM = 16;
   final int TIME_UNTIL_SET = 25;
+  final int TIME_UNTIL_SET_FAST = 10;
  
   int tmpFreq;
   int tmpFreq2;
@@ -2020,7 +2468,7 @@ void mouseWheel(MouseEvent event){
        if (tmpFreq >= stopFreq ) tmpFreq = stopFreq - 1000000;
        cp5.get(Textfield.class,"startFreqText").setText(str(tmpFreq));
        itemToSet = ITEM_FREQUENCY;
-       infoText = str( tmpFreq / 1000000 )  + " MHz" ;
+       infoText = str( ifCorrectedFreq(tmpFreq) / 1000000 )  + " MHz" ;
   //     infoLineX =  max( graphX() - 10, graphX() + graphWidth()  * (tmpFreq/1000000 - startFreq/1000000) / (stopFreq/1000000 - startFreq/1000000));
        infoLineX = getGraphXfromFreq( tmpFreq );
        
@@ -2034,7 +2482,7 @@ void mouseWheel(MouseEvent event){
        if (tmpFreq <= startFreq ) tmpFreq = startFreq + 1000000;
        cp5.get(Textfield.class,"stopFreqText").setText(str(tmpFreq));
        itemToSet = ITEM_FREQUENCY;
-       infoText = str( tmpFreq / 1000000 ) + " MHz";
+       infoText = str( ifCorrectedFreq( tmpFreq )/ 1000000 ) + " MHz";
   //     infoLineX =  min( graphX() + graphWidth() + 10, graphX() + graphWidth()  * (tmpFreq/1000000 - startFreq/1000000) / (stopFreq/1000000 - startFreq/1000000));
        infoLineX = getGraphXfromFreq( tmpFreq );
        timeToSet = TIME_UNTIL_SET;
