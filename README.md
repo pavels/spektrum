@@ -46,6 +46,7 @@ Progress so far
 - Added: Vertical offset for reference graph (controled from knob).
 - Added: Quick help reference screen (mouse operation).
 - Modified: RF gain is now a rotary knob plus 3 buttons for 1/3, 1/2 and 2/3 presets.
+- Modified: Created a tabed interface to make room for further feature development.
 
 Rearranged User interface: | Area/Line option 
 :-------------------------: | :-------------------------:
