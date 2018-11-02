@@ -49,9 +49,9 @@ Progress so far
 - Modified: Created a tabed interface to make room for further development.
 - Added: 9+1 Presets plus controls to modify and recall.
 
-Rearranged User interface: | Area/Line option 
+Rearranged User interface with Tabs: | Area/Line option 
 :-------------------------: | :-------------------------:
-![ Lates UI ](https://github.com/SV8ARJ/spektrum/blob/master/screenshots/filledGraphNot.png) |![Area graph option ](https://github.com/SV8ARJ/spektrum/blob/master/screenshots/FilledGraph.png)
+![ Latest UI ](https://github.com/SV8ARJ/spektrum/blob/master/screenshots/newUI01.png) |![Area graph option ](https://github.com/SV8ARJ/spektrum/blob/master/screenshots/FilledGraph.png)
 
 Mouse wheel zoom from middle of graph: | Mouse wheel close to graph edges adjusts limits 
 :-------------------------: | :-------------------------:
