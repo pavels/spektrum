@@ -6,18 +6,6 @@ import processing.serial.*;
 
 // The spektrum:: the SV mods -- SV1SGK and SV8ARJ UI improvements.
 // 
-// GRGNCK version 0.5-grg
-// GRGNCK version 0.6-nck
-// GRGNCK version 0.7-nck
-// GRGNCK version 0.8-nck
-// GRGNCK version 0.9-grg
-// GRGNCK version 0.10-grg
-// GRGNCK version 0.11-grg
-// GRGNCK version 0.12-grg
-// GRGNCK version 0.13-grg
-// GRGNCK version 0.14-grg
-// GRGNCK version 0.15-grg
-// GRGNCK version 0.15-grg
 //
 // Changelog : 
 /*
@@ -78,11 +66,16 @@ v0.16
   - Modified: RF gain is now a knob plus 3 buttons for 1/3, 1/2 and 2/3 pre-sets.
 v0.17
   - Modified: Created Tabs - Made room for more controls.
-  - Modified: Measurements box placement logic for "always in screen" positioning.
-    
+  - Modified: Measurements box placement logic for "always within the screen" positioning.
+v0.18
+  - Added: 10 presets for different settings
+  - Added: UI controls to modify settings of presets
+  - Added: Preset 0 is always autosaved with last values
+  - Added: Button to restore zoom to preset parameters
+  - Modified: UI with better spacing and labels  
 */
 
-String svVersion = "v0.17b";
+String svVersion = "v0.18";
 
 Serial myPort;       
 
@@ -93,7 +86,7 @@ DataPoint[] scaledBuffer;
 boolean startingupBypassSaveConfiguration = true;
 
 int reloadConfigurationAfterStartUp = 0;// This will be set at the end of the startup
-int CONFIG_RELOAD_DELAY = 0;  // 0 is disabled
+int CONFIG_RELOAD_DELAY = 30;  // 0 is disabled
 
 interface  CURSORS {
   int
@@ -109,6 +102,7 @@ int movingCursor = CURSORS.CUR_NONE;
 String tmpMessage;
 String tmpMessage1;
 
+final int NONE = 0;
 // TABS
 //
 int tabActiveID = 1;
@@ -135,6 +129,47 @@ final int  IF_TYPE_ABOVE     = 1;
 final int  IF_TYPE_BELOW     = 2;
 // }
 
+// Configuration
+//
+final int nrOfConfigurations = 10;			// First element is used for the Autosave functionality.
+final int DO_NOT_SAVE_CONFIGURATION = 0;
+final int SAVE_CONFIGURATION = 1;
+
+final int PRESET_SAVE = 1;
+final int PRESET_LOAD = 2;
+int configurationOperation = 0 ;
+
+int CONFIG_SAVE_DELAY = 80;  // 0 is disabled
+configurationClass[] configSet = new  configurationClass[10];
+int configurationActive=0;
+String configurationName;
+DropdownList configurationDropdown;
+int configurationSaveDelay = 0;
+
+// Maybe not needed -- TBD
+//
+public class configurationClass {
+	public int startFreq;
+	public int stopFreq;
+	public int binStep;
+	public int scaleMin;
+	public int scaleMax;
+	public int rfGain;
+	public int fullRangeMin;
+	public int fullRangeMax;
+	public int ifOffset;
+	public int ifType;
+	public int activeConfig;
+	public String configName;
+	
+	public configurationClass(int i)
+	{
+		configName = "Config" + i;	
+	}
+	
+}
+
+  
 int timeToSet = 1;  // GRGNICK add
 int itemToSet = 0;  // GRGNICK add -- 1 is Gain, 2 is Frequency
 int infoText1X = 0;
@@ -256,7 +291,8 @@ int lastMouseX;
 color buttonColor = color(70,70,70);
 color buttonColorText = color(255,255,230);
 color setButtonColor = color(127,0,0);
-color clickMeButtonColor = color(20,200,20); 
+color clickMeButtonColor = color(20,200,20);
+color willSaveButtonColor = color(200,20,20);  
 boolean drawSampleToggle=false;
 boolean vertCursorToggle=true;
 boolean drawFill=false;
@@ -332,6 +368,7 @@ void setupStartControls(){
 void setupControls(){
   int x, y;
   int width = 170;
+  Textlabel tmpLabel;
 
   // Setup TABS
   //
@@ -366,8 +403,17 @@ void setupControls(){
   uiNextLineIndex = 0;
  
  uiLines[uiNextLineIndex++][TAB_GENERAL] = y;
- y += 50;
- 
+ // y += 50;
+   	y+=35;
+	cp5.addTextlabel("receiverLabel")
+        .setText("RECEIVER RANGE:")
+        .setPosition(x-13,y)
+        .setColorValue(0xffffff00)
+        .setFont(createFont("ARIAL",10))
+        ;
+	y+=35;
+	
+	
   cp5.addTextfield("startFreqText")
     .setPosition(x, y)
     .setSize(width-50, 20)
@@ -423,7 +469,7 @@ void setupControls(){
     ;
     
   
-  cp5.addButton("setRange")
+  cp5.addButton("setRangeButton")
     .setValue(0)
     .setPosition(95, y)
     .setSize(width/2, 20)
@@ -432,10 +478,22 @@ void setupControls(){
     .getCaptionLabel().align(ControlP5.CENTER, ControlP5.CENTER).setText("Set range")
     ;
     
+	y += 10;
+    uiLines[uiNextLineIndex++][TAB_GENERAL] = y;
   
   // -------------------------------------------------------------------- IF offset
   //  
-  y += 40;
+  //y += 50;
+
+  	y+=35;
+	cp5.addTextlabel("ifLabel")
+        .setText("UP/DOWN CONVERTER:")
+        .setPosition(x-13,y)
+        .setColorValue(0xffffff00)
+        .setFont(createFont("ARIAL",10))
+        ;
+	y+=30;
+  
   
   cp5.addTextfield("ifOffset")
     .setPosition(x, y)
@@ -445,6 +503,8 @@ void setupControls(){
     .getCaptionLabel().align(ControlP5.LEFT, ControlP5.TOP_OUTSIDE).setText("IF Frequency")
     ;
     
+	cp5.get(Textfield.class,"ifOffset").setText(str(ifOffset));  // Spaggeti because mouse events and code modification events have the same result on event code...
+	
     // toggle vertical sursor on or off
   cp5.addToggle("ifPlusToggle")
    .setPosition(x  + 100 , y)
@@ -466,7 +526,15 @@ void setupControls(){
  
   // --------------------------------------------------------------------
   //  
-  y += 50;
+  // y += 60;
+  	y+=35;
+	cp5.addTextlabel("optionsLabel")
+        .setText("VARIOUS OPTIONS:")
+        .setPosition(x-13,y)
+        .setColorValue(0xffffff00)
+        .setFont(createFont("ARIAL",10))
+        ;
+	y+=35;
   
   // toggle vertical sursor on or off
   cp5.addToggle("vertCursorToggle")
@@ -516,8 +584,74 @@ void setupControls(){
 
    uiLines[uiNextLineIndex++][TAB_GENERAL] = y;
 
+
+	// ---------------------------- Configurations
+	//
+ 		y+=35;
+	cp5.addTextlabel("configLabel")
+        .setText("CONFIGURATION PRESETS:")
+        .setPosition(x-13,y)
+        .setColorValue(0xffffff00)
+        .setFont(createFont("ARIAL",10))
+		;
+	
+  // Quick n dirty. Load from file and populate list.
+  //
+  Table tmpTable = loadTable(fileName, "header");
+	
+ y+=35;
+  cp5.addTextfield("presetName")
+    .setPosition(x, y)
+    .setSize(100, 20)
+    .setText(tmpTable.getString(0, "configName"))
+    .setAutoClear(false)
+    .getCaptionLabel().align(ControlP5.LEFT, ControlP5.TOP_OUTSIDE).setText("Current preset")    
+    ;
+  
+   configurationDropdown = cp5.addDropdownList("configurationList")
+	.setBarHeight(20)
+	.setItemHeight(20)
+	.setPosition(x , y)
+	.setSize(100, 80)
+	.hide();
+  configurationDropdown.getCaptionLabel().align(ControlP5.LEFT, ControlP5.TOP_OUTSIDE).setText(configurationName);
+
+   cp5.addButton("selectPreset")
+    //.setValue(0)
+    .setPosition(x+105, y)
+    .setSize(20, 20)
+    .setColorBackground(buttonColor)
+	.setColorLabel(buttonColorText)
+    .getCaptionLabel().align(ControlP5.CENTER, ControlP5.CENTER).setText("...")
+    ;
+	
+   cp5.addButton("savePreset")
+    //.setValue(0)
+    .setPosition(x+135, y)
+    .setSize(40, 20)
+    .setColorBackground(buttonColor)
+	.setColorLabel(buttonColorText)
+    .getCaptionLabel().align(ControlP5.CENTER, ControlP5.CENTER).setText("Save to")
+    ;
+	
+  // Populate presets dropdwon list
+  //
+  for (int i=0; i<nrOfConfigurations; i++){
+    configurationDropdown.addItem( tmpTable.getString(i, "configName") , i);
+  } 
+  
+  y+=30;
+    
+  
+  
+  
+  
+  // Bottom of UI area
+  //
+  
   y = graphHeight() - 130;  
- 
+  uiLines[uiNextLineIndex++][TAB_GENERAL] = y - 40;
+  
   cp5.addButton("freezeDisplay")
     //.setValue(0)
     .setPosition(x, y)
@@ -541,7 +675,7 @@ void setupControls(){
    
 
 
-   // TAB MEASURE =========================================================
+   // TAB MEASURE =============================================================================
    //
 
  //  y=40;
@@ -564,7 +698,20 @@ void setupControls(){
   
   uiLines[uiNextLineIndex++][TAB_MEASURE] = y;
   
-  y += 50;
+    y+=35;
+	tmpLabel = cp5.addTextlabel("verticalLabel")
+        .setText("VERTICAL SCALE & RF GAIN:")
+        .setPosition(x-13,y)
+        .setColorValue(0xffffff00)
+        .setFont(createFont("ARIAL",10))
+        ;
+	tmpLabel.moveTo(tabLabels[TAB_MEASURE]);
+	
+	y+=35;
+  
+  
+  
+  //y += 50;
 
   cp5.addTextfield("scaleMinText")
     .setPosition(60, y)
@@ -691,15 +838,28 @@ void setupControls(){
  
    // REF, AVG, PERSISTENT --------------------------------------------------------------------
    //  
-   y += 50;
- 		   
+//   y += 50;
+
+    y+=35;
+	tmpLabel = cp5.addTextlabel("avgLabel")
+        .setText("VIDEO AVERAGING :")
+        .setPosition(x-13,y)
+        .setColorValue(0xffffff00)
+        .setFont(createFont("ARIAL",10))
+        ;
+	tmpLabel.moveTo(tabLabels[TAB_MEASURE]);
+	
+	y+=35;
+
+
+   
 	// ---------------------------
 	
 	cp5.addToggle("avgShow")
      .setPosition(x , y)
      .setSize(20,20)
      .setValue(false)
-     .getCaptionLabel().align(ControlP5.LEFT, ControlP5.TOP_OUTSIDE).setText("Video Average")
+     .getCaptionLabel().align(ControlP5.LEFT, ControlP5.TOP_OUTSIDE).setText("ON/OFF")
      ;
 cp5.getController("avgShow").moveTo(tabLabels[TAB_MEASURE]);
 	
@@ -721,17 +881,28 @@ cp5.getController("avgSamples").moveTo(tabLabels[TAB_MEASURE]);
 cp5.getController("avgDepthTxt").moveTo(tabLabels[TAB_MEASURE]);
 	
   uiLines[uiNextLineIndex++][TAB_MEASURE] = y;
-  y += 15;	
+  //y += 15;	
 	
 	// ------- REFERENCE
 	//
-	y += 40;
+	//y += 40;
+	y+=35;
+	tmpLabel = cp5.addTextlabel("refLabel")
+        .setText("REFERENCE GRAPH:")
+        .setPosition(x-13,y)
+        .setColorValue(0xffffff00)
+        .setFont(createFont("ARIAL",10))
+        ;
+	tmpLabel.moveTo(tabLabels[TAB_MEASURE]);
+	
+	y+=35;
+	
 	
  cp5.addToggle("refShow")
      .setPosition(x , y)
      .setSize(20,20)
      .setValue(false)
-     .getCaptionLabel().align(ControlP5.LEFT, ControlP5.TOP_OUTSIDE).setText("Show reference")
+     .getCaptionLabel().align(ControlP5.LEFT, ControlP5.TOP_OUTSIDE).setText("Show")
      ;
  cp5.getController("refShow").moveTo(tabLabels[TAB_MEASURE]);
  
@@ -760,14 +931,25 @@ cp5.getController("refYoffset").moveTo(tabLabels[TAB_MEASURE]);
 	// --------------------------------------------------------------------
     // 
   uiLines[uiNextLineIndex++][TAB_MEASURE] = y;
-  y += 15;	
-    y += 40;  
+  //y += 15;	
+  //  y += 40;  
+	
+	y+=35;
+	tmpLabel = cp5.addTextlabel("persistenceLabel")
+        .setText("MIN, MAX, MEDIAN HOLD :")
+        .setPosition(x-13,y)
+        .setColorValue(0xffffff00)
+        .setFont(createFont("ARIAL",10))
+        ;
+	tmpLabel.moveTo(tabLabels[TAB_MEASURE]);
+	
+	y+=35;
 	
 	cp5.addToggle("perShowMaxToggle")
      .setPosition(x, y)
      .setSize(20,20)
      .setValue(false)
-     .getCaptionLabel().align(ControlP5.LEFT, ControlP5.TOP_OUTSIDE).setText("Persistence")
+     .getCaptionLabel().align(ControlP5.LEFT, ControlP5.TOP_OUTSIDE).setText("MAX")
      ;
 cp5.getController("perShowMaxToggle").moveTo(tabLabels[TAB_MEASURE]);
 	
@@ -775,7 +957,7 @@ cp5.getController("perShowMaxToggle").moveTo(tabLabels[TAB_MEASURE]);
      .setPosition(x + 35, y)
      .setSize(20,20)
      .setValue(false)
-     .getCaptionLabel().align(ControlP5.LEFT, ControlP5.TOP_OUTSIDE).setText("")
+     .getCaptionLabel().align(ControlP5.LEFT, ControlP5.TOP_OUTSIDE).setText("med")
      ;
   cp5.getController("perShowMedToggle").moveTo(tabLabels[TAB_MEASURE]);	
 
@@ -784,7 +966,7 @@ cp5.getController("perShowMaxToggle").moveTo(tabLabels[TAB_MEASURE]);
      .setPosition(x + 70, y)
      .setSize(20,20)
      .setValue(false)
-     .getCaptionLabel().align(ControlP5.LEFT, ControlP5.TOP_OUTSIDE).setText("");
+     .getCaptionLabel().align(ControlP5.LEFT, ControlP5.TOP_OUTSIDE).setText("MIN");
   cp5.getController("perShowMinToggle").moveTo(tabLabels[TAB_MEASURE]);
 	
 	cp5.addButton("perReset")
@@ -801,7 +983,27 @@ cp5.getController("perShowMaxToggle").moveTo(tabLabels[TAB_MEASURE]);
 		
   // --------------------------------------------------------------------
   //  
-  y += 50;  
+  // y += 50;  
+    y+=35;
+	tmpLabel = cp5.addTextlabel("zoomLabel")
+        .setText("PRESET / RETURN TO PREVIOUS:")
+        .setPosition(x-13,y)
+        .setColorValue(0xffffff00)
+        .setFont(createFont("ARIAL",10))
+        ;
+	tmpLabel.moveTo(tabLabels[TAB_MEASURE]);
+	
+	y+=25;
+  
+  cp5.addButton("presetRestore")  // was "zoomIn button"
+    .setPosition(x, y)
+    .setSize(width/2-5, 20)
+    .setColorBackground(buttonColor)
+	.setColorLabel(buttonColorText)
+    .getCaptionLabel().align(ControlP5.CENTER, ControlP5.CENTER).setText("Pre-set")
+    ;
+  cp5.getController("presetRestore").moveTo(tabLabels[TAB_MEASURE]);
+
   
   cp5.addButton("zoomBack")
     .setPosition(x+width/2+5, y)
@@ -812,18 +1014,12 @@ cp5.getController("perShowMaxToggle").moveTo(tabLabels[TAB_MEASURE]);
     ;
   cp5.getController("zoomBack").moveTo(tabLabels[TAB_MEASURE]);
   
-  cp5.addButton("zoomIn")
-    .setPosition(x, y)
-    .setSize(width/2-5, 20)
-    .setColorBackground(buttonColor)
-	.setColorLabel(buttonColorText)
-    .getCaptionLabel().align(ControlP5.CENTER, ControlP5.CENTER).setText("Zoom")
-    ;
-cp5.getController("zoomIn").moveTo(tabLabels[TAB_MEASURE]);
-
+  y+=10;
+  uiLines[uiNextLineIndex++][TAB_MEASURE] = y;
+  
   // --------------------------------------------------------------------
   //  
-  y += 30;
+  y += 50;
   
   cp5.addButton("toggleRelMode")
     //.setValue(0)
@@ -837,7 +1033,7 @@ cp5.getController("zoomIn").moveTo(tabLabels[TAB_MEASURE]);
   
   // --------------------------------------------------------------------
   //  
-  y = graphHeight() - 130;  
+  y = graphHeight() - 120;  
  
 
    
@@ -870,17 +1066,7 @@ cp5.getController("zoomIn").moveTo(tabLabels[TAB_MEASURE]);
   // Min/Max labels position (Down left)
   minMaxTextY = height-50;
  
- 	if (ifType == IF_TYPE_ABOVE) {
-		cp5.get(Toggle.class,"ifMinusToggle").setValue(0);
-		cp5.get(Toggle.class,"ifPlusToggle").setValue(1);
-	}
-	else if (ifType == IF_TYPE_BELOW ) {
-		cp5.get(Toggle.class,"ifMinusToggle").setValue(1);
-		cp5.get(Toggle.class,"ifPlusToggle").setValue(0); 
-	}
-
-	cp5.get(Textfield.class,"ifOffset").setText(str(ifOffset));
-	
+	loadConfigPostCreation();
 	
 
 
@@ -938,7 +1124,7 @@ cp5.getController("zoomIn").moveTo(tabLabels[TAB_MEASURE]);
 
   println("Reached end of setupControls.");
   
-  startingupBypassSaveConfiguration = false;//Ready loading... now you are able to save..
+  startingupBypassSaveConfiguration = false;    //Ready loading... now you are able to save..
   
   // arrange controller in separate tabs
   // Tab 'global' is a tab that lies on top of any 
@@ -953,7 +1139,7 @@ cp5.getController("zoomIn").moveTo(tabLabels[TAB_MEASURE]);
 // Generic event handler for controls
 //
  void controlEvent(ControlEvent theEvent) {
- 	
+ 	// println("controlEvent: EVENT DETECTED");
 	if (theEvent.isTab()) {
 		// println("got an event from tab : "+theEvent.getTab().getName()+" with id "+theEvent.getTab().getId());
 		cp5.getTab(tabActiveName).setHeight(TAB_HEIGHT);
@@ -961,24 +1147,93 @@ cp5.getController("zoomIn").moveTo(tabLabels[TAB_MEASURE]);
 		theEvent.getTab().setHeight(TAB_HEIGHT_ACTIVE);
 		tabActiveName = theEvent.getTab().getName();
   		
-    // println( tabLabels[tabActiveID] );
+		// println( tabLabels[tabActiveID] );
 		// println(tabActiveName);
 			
 	}
 
- 	// if(theEvent.isController()) { 
- 	// 	 // println(theEvent.getController().getName());
- 	// 	 if(theEvent.getController().getName()=="rfGain") {
- 	// 		println("RF GAIN CLICKED");		
- 	// 	 }
- 	// }	
+ 	if(theEvent.isController()) { 
+ 		 println(theEvent.getController().getName());
+ 		 if(theEvent.getController().getName()=="rfGain") {
+ 			println("RF GAIN CLICKED");		
+ 		 }
+	//	 if(theEvent.getController().getName()=="ifPlusToggle" ||
+	//	    theEvent.getController().getName()=="ifMinusToggle" ) {
+	//		//	saveConfig();	// User action, should save
+	//	}
+	//	 if(theEvent.getController().getName()=="setRangeButton" ) {
+	//			setRange(SAVE_CONFIGURATION);
+	//	 }
+ 	}	
  }
+ 
+ // Change the active configuration from the drop down list
+ //
+ public void configurationList(int confValue){  
+	if ( configurationOperation == PRESET_SAVE ) {
+		table.setString( confValue, "configName", cp5.get(Textfield.class, "presetName").getText());
+		saveConfigToIndx( confValue );
+		configurationDropdown.clear();
+		for (int i=0; i<nrOfConfigurations; i++){
+			configurationDropdown.addItem( table.getString(i, "configName") , i);
+	  } 
+	} else {	// Load
+		configurationActive = confValue;
+		println("configurationList: Setting active configuration to " + confValue );
+		loadConfig();
+		loadConfigPostCreation();
+		zoomIn();
+		
+	}
+
+	configurationOperation = NONE;
+    cp5.get(Textfield.class,"presetName").setText( configurationName );
+	configurationDropdown.hide();
+	cp5.get(Button.class,"savePreset").setColorBackground( buttonColor );
+  
+}
+
+public void selectPreset(){    
+  if ( configurationDropdown.isVisible() )  {  
+    configurationDropdown.hide();
+	configurationOperation = NONE;
+	cp5.get(Button.class,"savePreset").setColorBackground( buttonColor );
+  }  else {
+    configurationDropdown.show();
+  }
+  
+  configurationDropdown.bringToFront();
+  configurationDropdown.open(); 
+}
+
+public void savePreset(){
+	if ( configurationOperation != NONE ) { // If already opened for saving, cancel it.
+		configurationOperation = NONE;
+		configurationDropdown.hide();
+		configurationDropdown.close();
+		cp5.get(Button.class,"savePreset").setColorBackground( buttonColor );
+		
+	} else {
+		configurationOperation = PRESET_SAVE;
+		configurationDropdown.show();
+		configurationDropdown.open();
+		cp5.get(Button.class,"savePreset").setColorBackground( willSaveButtonColor );
+	}
+
+}
+ 
+public void presetRestore(){
+   loadConfig();
+   loadConfigPostCreation();
+   zoomIn();
+}
+ 
+ 
  
  public void openSerial() {
 		
 		println( cp5.getController("serialPort").getValue());
 		println( cp5.get(DropdownList.class,"serialPort").getValue());
-		
 }
 
 public void rfGain(int gainValue) {
@@ -993,6 +1248,7 @@ public void rfGain01(int gainValue) {
 	rfGain( tpmInt ); 
 	cp5.get(Knob.class,"rfGain").setValue(tpmInt);
 }
+
 public void rfGain02(int gainValue) { 
 	int tpmInt = (int) (( gains[0] + ( gains[gains.length-1] - gains[0]) / 2 )  ) ;
 	rfGain( tpmInt ); 
@@ -1016,7 +1272,8 @@ public void ifPlusToggle(int theValue){
     }else{
 		ifType = IF_TYPE_NONE;
 	}
-	saveConfig();
+
+	configurationSaveDelay = CONFIG_SAVE_DELAY; //	saveConfig(); 
   }
 }public void ifMinusToggle(int theValue){
   if(setupDone){
@@ -1028,7 +1285,8 @@ public void ifPlusToggle(int theValue){
 		ifType = IF_TYPE_NONE;
     }
   }
-  saveConfig();
+ 
+	configurationSaveDelay = CONFIG_SAVE_DELAY; //  saveConfig();
 }
 
 
@@ -1106,10 +1364,15 @@ public int ifCorrectedFreq( int inFreq ){
   return tmpFreq;
 }
 
-public void setRange(int theValue){
+
+public void setRangeButton(int saveConfig){
+	 setRange(SAVE_CONFIGURATION);
+}
+
+public void setRange(int saveConfig){
   
   // Button color indicating change
-  cp5.get(Button.class,"setRange").setColorBackground( buttonColor );
+  cp5.get(Button.class,"setRangeButton").setColorBackground( buttonColor );
   
   cursorVerticalLeftX = -1;
   cursorVerticalRightX = -1;
@@ -1126,9 +1389,8 @@ public void setRange(int theValue){
   
   if(startFreq == 0 || stopFreq <= startFreq || binStep < 1) return;  
   
-  //============ added by Dave N 24 Aug 2017
-  saveConfig();
-  //============================
+  if ( saveConfig == SAVE_CONFIGURATION ) configurationSaveDelay = CONFIG_SAVE_DELAY; //saveConfig();
+
   
   relMode = 0;
   spektrumReader.clearFrequencyRange();
@@ -1150,9 +1412,9 @@ public void setScale(int theValue){
   }catch(Exception e){
     return;
   }
-  //============ added by Dave N 24 Aug 2017
-  saveConfig();
-  //============================
+  
+  configurationSaveDelay = CONFIG_SAVE_DELAY; //	saveConfig(); 
+ 
 }
 
 
@@ -1226,7 +1488,7 @@ void zoomBack(){
   zoomBackScalMax = scaleMax;
   
   setScale(1);
-  setRange(1);
+  setRange(SAVE_CONFIGURATION);
 }
 
 void zoomIn(){
@@ -1243,7 +1505,7 @@ void zoomIn(){
   cp5.get(Textfield.class,"scaleMinText").setText( str(scaleMax - ( ( (cursorHorizontalBottomY - graphY()) * gainPerPixel() ) / 1000 )) );
   cp5.get(Textfield.class,"scaleMaxText").setText( str(scaleMax - ( ( (cursorHorizontalTopY - graphY()) * gainPerPixel() ) / 1000 )) );
   
-  setScale(1);
+  setScale(SAVE_CONFIGURATION);
   setRange(1);
 }
 
@@ -1258,6 +1520,13 @@ public void deviceDropdown(int theValue){
   deviceDropdown.hide();
   spektrumReader = new Rtlspektrum(theValue);
   int status = spektrumReader.openDevice();
+  
+  // Initialiaze configuration class array
+  //
+  for (int i=0; i<nrOfConfigurations; i++) {  
+   configSet[i] = new  configurationClass(i+1);
+   // configSet[i].configName = "Config" + (i+1) ;
+  }
   
   //============ Function calls added by Dave N
   makeConfig();  // create config file if it is not found.
@@ -1673,25 +1942,23 @@ void draw(){
   } 
   else if ( timeToSet == 1 ) {
       timeToSet = 0;
-      if (itemToSet == ITEM_FREQUENCY) setRange(1);
+      if (itemToSet == ITEM_FREQUENCY) setRange(SAVE_CONFIGURATION);
       if (itemToSet == ITEM_GAIN) setScale(1);
-      if (itemToSet == ITEM_ZOOM) { setScale(1);     setRange(1); }
+      if (itemToSet == ITEM_ZOOM) { setScale(1);     setRange(SAVE_CONFIGURATION); }
       
       infoText1X = 0;
   }
   
   
-  // ==== Reload configuration after start up NOT USED for now - temporary remedy for abnormal behavior - data folder should be removed
+  // Delayed saving
   //
-  if (reloadConfigurationAfterStartUp > 1){
-    reloadConfigurationAfterStartUp--;
+  if (configurationSaveDelay > 1){
+    configurationSaveDelay--;
   }
-  else if (reloadConfigurationAfterStartUp == 1){
-    reloadConfigurationAfterStartUp = 0;
-    loadConfig();
-    setScale(1);
-    setRange(1);
-    println("Reload Config!");
+  else if (configurationSaveDelay == 1){
+    configurationSaveDelay = 0;
+    saveConfig();
+    println("TMR: Config saved (after delay).");
   }
   
   // Help Screen
@@ -1830,7 +2097,7 @@ public void resetMin(){
   
   cp5.get(Textfield.class,"startFreqText").setText( str(fullRangeMin) );
   
-  setRange(1);
+  setRange(SAVE_CONFIGURATION);
   
 }
 
@@ -1840,70 +2107,105 @@ void resetMax(){
   
   cp5.get(Textfield.class,"stopFreqText").setText( str(fullRangeMax) );
   
-  setRange(1);
+  setRange(SAVE_CONFIGURATION);
    
 }
 
 
 
+void loadConfigPostCreation()
+{
+	if (ifType == IF_TYPE_ABOVE) {
+		cp5.get(Toggle.class,"ifMinusToggle").setValue(0);
+		cp5.get(Toggle.class,"ifPlusToggle").setValue(1);
+	}
+	else if (ifType == IF_TYPE_BELOW ) {
+		cp5.get(Toggle.class,"ifMinusToggle").setValue(1);
+		cp5.get(Toggle.class,"ifPlusToggle").setValue(0); 
+	}
+	else {
+		cp5.get(Toggle.class,"ifMinusToggle").setValue(0);
+		cp5.get(Toggle.class,"ifPlusToggle").setValue(0); 
+	}
 
+	cp5.get(Textfield.class,"ifOffset").setText(str(ifOffset));
+
+}
 
 void loadConfig(){
 		
   //================ Function added by DJN 24 Aug 2017 
   table = loadTable(fileName, "header"); 
-  startFreq = table.getInt(0, "startFreq");
-  stopFreq = table.getInt(0, "stopFreq");
-  binStep = table.getInt(0, "binStep"); 
-  scaleMin = table.getInt(0, "scaleMin"); 
-  scaleMax = table.getInt(0, "scaleMax"); 
-  // rfGain = table.getInt(0, "rfGain");
-  fullRangeMin = table.getInt(0, "minFreq"); 
-  fullRangeMax = table.getInt(0, "maxFreq");
   
-  ifOffset = table.getInt(0, "ifOffset");
-  ifType = table.getInt(0, "ifType");
+  // configurationActive = table.getInt(0,"activeConfig");		// Active configuration is always and only saved in 0 position
   
-
+  startFreq = table.getInt(configurationActive, "startFreq");
+  stopFreq = table.getInt(configurationActive, "stopFreq");
+  if (startFreq >= stopFreq)  stopFreq = startFreq +100000;
+  binStep = table.getInt(configurationActive, "binStep");
+  scaleMin = table.getInt(configurationActive, "scaleMin");
+  scaleMax = table.getInt(configurationActive, "scaleMax");
+  // rfGain = table.getInt(configurationActive, "rfGain");
+  fullRangeMin = table.getInt(configurationActive, "minFreq");
+  fullRangeMax = table.getInt(configurationActive, "maxFreq");
   
+  ifOffset = table.getInt(configurationActive, "ifOffset");
+  ifType = table.getInt(configurationActive, "ifType");
+  
+  configurationName = table.getString(configurationActive, "configName");
+  // cp5.getController("configurationList").getCaptionLabel().setText(configurationName);
+   
   //Protection 
   if (binStep < binStepProtection) binStep = binStepProtection;
    
   // Init zoom back 
-  zoomBackFreqMin = startFreq; 
-  zoomBackFreqMax = stopFreq;  
-  zoomBackScalMin = scaleMin;  
-  zoomBackScalMax = scaleMax; 
+  zoomBackFreqMin = startFreq;
+  zoomBackFreqMax = stopFreq;
+  zoomBackScalMin = scaleMin;
+  zoomBackScalMax = scaleMax;
    
    
-  println("Config table " + fileName + " loaded.");  
+  println("loadConfig: Config table " + fileName + " loaded.");
   println("startFreq = " + startFreq + " stopFreq = " + stopFreq + " binStep = " + binStep + " scaleMin = " + 
       scaleMin + " scaleMax = ", scaleMax + " rfGain = " + rfGain + " fullRangeMin = " + fullRangeMin + "  fullRangeMax = " + fullRangeMax + 
       " ifOffset = " + ifOffset + " ifType = " + ifType);
-
-
+   
+   try {
+	cp5.get(Textfield.class,"ifOffset").setText(str(ifOffset));  // Spaghetti because mouse events and code modification events have the same result on event code...
+   }
+   catch (Exception e) {
+   }
  
 }   
-   
+
 void saveConfig(){ 
+	saveConfigToIndx( 0 );
+}
+   
+void saveConfigToIndx( int configIndx ){ 
   //================ Function added by DJN 24 Aug 2017   
   // Note: saveTable fails if file is being backed up at time saveTable is run!   
-   
-  if (startingupBypassSaveConfiguration == false) {   
-    table.setInt(0, "startFreq", startFreq);  
-    table.setInt(0, "stopFreq",stopFreq); 
-    table.setInt(0, "binStep", binStep);
-    table.setInt(0, "scaleMin", scaleMin); 
-    table.setInt(0, "scaleMax", scaleMax);
-    table.setInt(0, "rfGain",rfGain);
-	  table.setInt(0, "minFreq",fullRangeMin); 
-	  table.setInt(0, "maxFreq",fullRangeMax); 
-	  table.setInt(0, "ifOffset",ifOffset);
-	  table.setInt(0, "ifType",ifType); 
+  int i; 
+  if (startingupBypassSaveConfiguration == false) { 
+
+	println("saveConfig: Active Configuration " + configurationActive + " with name " + configurationName);
 	
-    saveTable(table, fileName, "csv");  
-     
-    println("startFreq = " + startFreq + " stopFreq = " + stopFreq + " binStep = " + binStep + " scaleMin = " +  
+	table.setInt(0, "activeConfig", configurationActive);
+  
+    table.setInt(configIndx, "startFreq", startFreq);
+    table.setInt(configIndx, "stopFreq",stopFreq); 
+    table.setInt(configIndx, "binStep", binStep);
+    table.setInt(configIndx, "scaleMin", scaleMin);
+    table.setInt(configIndx, "scaleMax", scaleMax);
+    table.setInt(configIndx, "rfGain",rfGain);
+	table.setInt(configIndx, "minFreq",fullRangeMin);
+	table.setInt(configIndx, "maxFreq",fullRangeMax);
+	table.setInt(configIndx, "ifOffset",ifOffset);
+	table.setInt(configIndx, "ifType",ifType);
+	
+    saveTable(table, fileName, "csv");
+
+    println("STORE TO " +  configurationActive + " : startFreq = " + startFreq + " stopFreq = " + stopFreq + " binStep = " + binStep + " scaleMin = " +  
       scaleMin + " scaleMax = ", scaleMax + " rfGain = " + rfGain + " fullRangeMin = " + fullRangeMin + "  fullRangeMax = " + fullRangeMax + 
       " ifOffset = " + ifOffset + " ifType = " + ifType);  
     println("Config table " + fileName + " saved.");
@@ -1915,7 +2217,6 @@ void makeConfig(){
   //================ function added by DJN 24 Aug 2017 
   FileWriter fw= null;
   File file =null; 
-  
   println("File " + fileName);//println("File " + dataPath(fileName)); 
   
   try { 
@@ -1931,17 +2232,29 @@ void makeConfig(){
       // Write initial default values to new config file
       // fw.write(startFreq + "," + stopFreq + "," + binStep + "," + scaleMin + "," + scaleMax + "," + rfGain + ",24000000,1800000000");
 	   
-      fw.write("startFreq,stopFreq,binStep,scaleMin,scaleMax,rfGain,minFreq,maxFreq,ifOffset,ifType\n"); 
-      fw.write("24000000,1800000000,2000,-110,40,0,24000000,1800000000,0,0\n"); 
-       
+      fw.write("startFreq,stopFreq,binStep,scaleMin,scaleMax,rfGain,minFreq,maxFreq,ifOffset,ifType,activeConfig,configName\n"); 
+      //for (int i=1; i<=nrOfConfigurations; i++)
+	  fw.write("24000000,1800000000,2000,-110,40,0,24000000,1800000000,0,0,0,AutoSave\n"); 
+	  fw.write("88000000,108000000,2000,-110,40,0,24000000,1800000000,0,0,0,FM Band\n"); 
+      fw.write("118000000,178000000,2000,-110,40,0,24000000,1800000000,0,0,0,VHF Band+\n"); 
+      fw.write("380000000,450000000,2000,-110,40,0,24000000,1800000000,0,0,0,UHF Band+\n"); 
+      fw.write("120000000,170000000,2000,-110,40,0,24000000,1800000000,120000000,1,0,Spyverter\n"); 
+      fw.write("24000000,1800000000,2000,-110,40,0,24000000,1800000000,0,0,0,Config A\n"); 
+      fw.write("24000000,1800000000,2000,-110,40,0,24000000,1800000000,0,0,0,Config B\n"); 
+      fw.write("24000000,1800000000,2000,-110,40,0,24000000,1800000000,0,0,0,Config C\n"); 
+      fw.write("24000000,1800000000,2000,-110,40,0,24000000,1800000000,0,0,0,Config D\n"); 
+      fw.write("24000000,1800000000,2000,-110,40,0,24000000,1800000000,0,0,0,Config E\n"); 
+	  
 	  fw.flush(); 
       fw.close(); 
-      println(fileName +  " created succesfully");//println(dataPath(fileName) +  " created succesfully"); 
+      println(fileName +  " created succesfully");//println(dataPath(fileName) +  " created succesfully");
+  
     } 
   } 
   catch(IOException e){
       e.printStackTrace();
-  } 
+  }
+  
    
   println("Reached end of makeconfig");
 }
@@ -2196,7 +2509,7 @@ void mousePressed(MouseEvent evnt){
       movingCursor = CURSORS.CUR_X_LEFT;
       
       // Button color indicating change
-      cp5.get(Button.class,"setRange").setColorBackground( clickMeButtonColor );
+      cp5.get(Button.class,"setRangeButton").setColorBackground( clickMeButtonColor );
       
     }
     // RIGHT
@@ -2209,7 +2522,7 @@ void mousePressed(MouseEvent evnt){
       movingCursor = CURSORS.CUR_X_RIGHT;
       
       // Button color indicating change
-      cp5.get(Button.class,"setRange").setColorBackground( clickMeButtonColor );
+      cp5.get(Button.class,"setRangeButton").setColorBackground( clickMeButtonColor );
     }
     
     
