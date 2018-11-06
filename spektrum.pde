@@ -72,10 +72,13 @@ v0.18
   - Added: UI controls to modify settings of presets
   - Added: Preset 0 is always autosaved with last values
   - Added: Button to restore zoom to preset parameters
-  - Modified: UI with better spacing and labels  
+  - Modified: UI with better spacing and labels
+v0.19
+  - Tests with crop - New rtlspektrum.jar
+  - Added UI for setting the crop of rtlpower
 */
 
-String svVersion = "v0.18";
+String svVersion = "v0.19";
 
 Serial myPort;       
 
@@ -201,6 +204,7 @@ int tmpFreq = 0;
 int rfGain = 0;
 int ifOffset = 0;
 int ifType = 0;
+int cropPercent = 0;	// RTL data chunks percentage to keep. Values 0 to 70 percent
 
 
 int scaleMin = -110;
@@ -582,6 +586,17 @@ void setupControls(){
      .getCaptionLabel().align(ControlP5.LEFT, ControlP5.TOP_OUTSIDE).setText("Sweep")
      ;  
 
+	 
+  y += 40;
+  
+  cp5.addTextfield("cropPrcntTxt")
+    .setPosition(x, y)
+    .setSize(60, 20)
+    .setText(str(cropPercent))
+    .setAutoClear(false)
+    .getCaptionLabel().align(ControlP5.LEFT, ControlP5.TOP_OUTSIDE).setText("Crop percent (0-70%)")
+	;	 
+	 
    uiLines[uiNextLineIndex++][TAB_GENERAL] = y;
 
 
@@ -1167,6 +1182,16 @@ cp5.getController("perShowMaxToggle").moveTo(tabLabels[TAB_MEASURE]);
  	}	
  }
  
+ public void cropPrcntTxt(String tmpText){
+
+  // cp5.get(Button.class,"setRangeButton").setColorBackground( clickMeButtonColor );
+  cropPercent = parseInt(tmpText);
+  cropPercent = max( min(70,cropPercent ) , 0 );
+  cp5.get(Textfield.class,"cropPrcntTxt").setText(str(cropPercent));
+  setRangeButton(0);
+  
+}
+ 
  // Change the active configuration from the drop down list
  //
  public void configurationList(int confValue){  
@@ -1381,21 +1406,23 @@ public void setRange(int saveConfig){
     startFreq = parseInt(cp5.get(Textfield.class,"startFreqText").getText());
     stopFreq = parseInt(cp5.get(Textfield.class,"stopFreqText").getText());
     binStep = parseInt(cp5.get(Textfield.class,"binStepText").getText());
+	cropPercent = parseInt(cp5.get(Textfield.class,"cropPrcntTxt").getText());
     //RED-C-REM  vertCursorFreq = parseInt(cp5.get(Textfield.class,"vertCursorFreqText").getText());
   }catch(Exception e){
     println("setRange exception.");
-    return;
+    // return;
   }
   
   if(startFreq == 0 || stopFreq <= startFreq || binStep < 1) return;  
   
   if ( saveConfig == SAVE_CONFIGURATION ) configurationSaveDelay = CONFIG_SAVE_DELAY; //saveConfig();
 
-  
+  double tmpCrop = (double) ( max( min(70,cropPercent ) , 0 ) / 100.0);
   relMode = 0;
   spektrumReader.clearFrequencyRange();
-  spektrumReader.setFrequencyRange(startFreq, stopFreq, binStep);
+  spektrumReader.setFrequencyRange(startFreq, stopFreq, binStep, tmpCrop);
   spektrumReader.startAutoScan();
+  println("setRange: CROP set to " + tmpCrop);
 }
 
 public void setScale(int theValue){
@@ -2010,8 +2037,8 @@ void helpShow ( ) {
 	tmpMessage1+= "- On rotary knobs (eg RF gain) left click and drag up/down for fast adjustment. \n";
 	tmpMessage1+= "- An average graph may also be saved as reference if it is active when the 'SAVE REFERENCE'\n";
 	tmpMessage1+= "  Button is clicked        \n";
-	tmpMessage1+= "\n";
-	tmpMessage1+= "\n";
+	tmpMessage1+= "- Crop (percent) will make the graph smoother but slower. Enter a value between 0 and 70 and\n";
+	tmpMessage1+= "  press [ENTER]\n";
 	tmpMessage1+= "\n\n\n\n\n\n\n\n\n\n\n\n\n";
 	tmpMessage1+= "\n";
 	tmpMessage1+= "Original spektrum : https://github.com/pavels/spektrum\n";
@@ -2129,6 +2156,8 @@ void loadConfigPostCreation()
 	}
 
 	cp5.get(Textfield.class,"ifOffset").setText(str(ifOffset));
+	
+	cp5.get(Textfield.class,"cropPrcntTxt").setText(str(cropPercent));
 
 }
 
@@ -2152,11 +2181,15 @@ void loadConfig(){
   ifOffset = table.getInt(configurationActive, "ifOffset");
   ifType = table.getInt(configurationActive, "ifType");
   
+  cropPercent = table.getInt(configurationActive, "cropPrcnt");
+  
   configurationName = table.getString(configurationActive, "configName");
   // cp5.getController("configurationList").getCaptionLabel().setText(configurationName);
    
   //Protection 
   if (binStep < binStepProtection) binStep = binStepProtection;
+  cropPercent = max( min(70,cropPercent ) , 0 );	// Just in case....
+  
    
   // Init zoom back 
   zoomBackFreqMin = startFreq;
@@ -2202,6 +2235,7 @@ void saveConfigToIndx( int configIndx ){
 	table.setInt(configIndx, "maxFreq",fullRangeMax);
 	table.setInt(configIndx, "ifOffset",ifOffset);
 	table.setInt(configIndx, "ifType",ifType);
+	table.setInt(configIndx, "cropPrcnt",cropPercent);
 	
     saveTable(table, fileName, "csv");
 
@@ -2232,18 +2266,18 @@ void makeConfig(){
       // Write initial default values to new config file
       // fw.write(startFreq + "," + stopFreq + "," + binStep + "," + scaleMin + "," + scaleMax + "," + rfGain + ",24000000,1800000000");
 	   
-      fw.write("startFreq,stopFreq,binStep,scaleMin,scaleMax,rfGain,minFreq,maxFreq,ifOffset,ifType,activeConfig,configName\n"); 
+      fw.write("startFreq,stopFreq,binStep,scaleMin,scaleMax,rfGain,minFreq,maxFreq,ifOffset,ifType,cropPrcnt,activeConfig,configName\n"); 
       //for (int i=1; i<=nrOfConfigurations; i++)
-	  fw.write("24000000,1800000000,2000,-110,40,0,24000000,1800000000,0,0,0,AutoSave\n"); 
-	  fw.write("88000000,108000000,2000,-110,40,0,24000000,1800000000,0,0,0,FM Band\n"); 
-      fw.write("118000000,178000000,2000,-110,40,0,24000000,1800000000,0,0,0,VHF Band+\n"); 
-      fw.write("380000000,450000000,2000,-110,40,0,24000000,1800000000,0,0,0,UHF Band+\n"); 
-      fw.write("120000000,170000000,2000,-110,40,0,24000000,1800000000,120000000,1,0,Spyverter\n"); 
-      fw.write("24000000,1800000000,2000,-110,40,0,24000000,1800000000,0,0,0,Config A\n"); 
-      fw.write("24000000,1800000000,2000,-110,40,0,24000000,1800000000,0,0,0,Config B\n"); 
-      fw.write("24000000,1800000000,2000,-110,40,0,24000000,1800000000,0,0,0,Config C\n"); 
-      fw.write("24000000,1800000000,2000,-110,40,0,24000000,1800000000,0,0,0,Config D\n"); 
-      fw.write("24000000,1800000000,2000,-110,40,0,24000000,1800000000,0,0,0,Config E\n"); 
+	  fw.write("24000000,1800000000,2000,-110,40,0,24000000,1800000000,0,0,0,0,AutoSave\n"); 
+	  fw.write("88000000,108000000,2000,-110,40,0,24000000,1800000000,0,0,0,0,FM Band\n"); 
+      fw.write("118000000,178000000,2000,-110,40,0,24000000,1800000000,0,0,0,0,VHF Band+\n"); 
+      fw.write("380000000,450000000,2000,-110,40,0,24000000,1800000000,0,0,0,0,UHF Band+\n"); 
+      fw.write("120000000,170000000,2000,-110,40,0,24000000,1800000000,120000000,1,0,0,Spyverter\n"); 
+      fw.write("24000000,1800000000,2000,-110,40,0,24000000,1800000000,0,0,0,0,Config A\n"); 
+      fw.write("24000000,1800000000,2000,-110,40,0,24000000,1800000000,0,0,0,0,Config B\n"); 
+      fw.write("24000000,1800000000,2000,-110,40,0,24000000,1800000000,0,0,0,0,Config C\n"); 
+      fw.write("24000000,1800000000,2000,-110,40,0,24000000,1800000000,0,0,0,0,Config D\n"); 
+      fw.write("24000000,1800000000,2000,-110,40,0,24000000,1800000000,0,0,0,0,Config E\n"); 
 	  
 	  fw.flush(); 
       fw.close(); 
