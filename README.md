@@ -78,6 +78,11 @@ Basic support for IF. |  Average stored as reference and shifted up.
 :-------------------------: | :-------------------------:
 ![ Basic support for IF ](https://github.com/SV8ARJ/spektrum/blob/master/screenshots/upDownConverter.png) | ![ Average stored as reference and shifted up. ](https://github.com/SV8ARJ/spektrum/blob/master/screenshots/referenceOffset.png) 
 
+RTL Power croping : OFF. |  RTL Power croping : ON.
+:-------------------------: | :-------------------------:
+![ Croping off ](https://github.com/SV8ARJ/spektrum/blob/master/screenshots/crop-off.png) | ![ Croping on ](https://github.com/SV8ARJ/spektrum/blob/master/screenshots/crop-on.png) 
+
+
 
 Original readme starts here:
 ----------------------------
