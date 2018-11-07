@@ -2,10 +2,9 @@
 
 ### "The SV mod" - UI improvements by SV1SGK and SV8ARJ. W.I.P.
 
-Download the latest test build (v0.19_06-NOE-18) from [here](https://www.dropbox.com/sh/c7vjbvm0mhi4xqu/AAAnuL9OkGZnQfcmRo2nRf8Ia?dl=0).
+Download the latest test build (v0.19a_07-NOE-18) from [here](https://www.dropbox.com/sh/c7vjbvm0mhi4xqu/AAAnuL9OkGZnQfcmRo2nRf8Ia?dl=0).
 -------
 - Please report bugs/comments before our pull request. The rtlsdr.dll and rtlpower.dll included (in the lib folder) are from previous version of spektrum (v1.0.2). Latest versions (also included but renamed to ****.dll-latest) were giving us a grey screen (not working). YMMV.
-- If you get an error after selecting device see [this](https://github.com/SV8ARJ/spektrum/issues/1).
 
 Goals : 
 -------
@@ -49,6 +48,7 @@ Progress so far
 - Modified: Created a tabed interface to make room for further development.
 - Added: 9+1 Presets plus controls to modify and recall.
 - Added: Graph smoothing using RTL crop. (rtlspektrum library wraper recompiled to export the "crop" setting).
+- Modified: Behaviour of mouse and delete key in text fields from [here](https://github.com/Viproz/controlp5/releases/tag/v2.2.7) (controIP5 library fix by @Viproz, Thanks !).
 
 Rearranged User interface with Tabs: | Area/Line option 
 :-------------------------: | :-------------------------:
