@@ -88,6 +88,15 @@ void setupStartControls(){
   
 }
 
+CallbackListener cursorToggleCallbackListener = new CallbackListener() {
+  public void controlEvent(CallbackEvent theEvent) {
+      if (theEvent.getAction()==ControlP5.ACTION_PRESS) {
+        String controllerString = theEvent.getController().getName();
+        vertCursorToggle(int(controllerString.substring(controllerString.length() - 1)));
+      }
+    }
+};
+
 void setupControls(){
   int x, y;
   int width = 170;
@@ -143,12 +152,14 @@ void setupControls(){
     
     // toggle vertical sursor on or off
     cp5.addToggle("vertCursorToggle" + str(i))
+     .addCallback(cursorToggleCallbackListener)
+     .setValue(1)
      .setPosition((width - 10)/2 + 50,y)
      .setSize(20,20)
-     .getCaptionLabel().align(ControlP5.LEFT, ControlP5.TOP_OUTSIDE).setText(vertCursorName[i] + "On/Off")
+     .getCaptionLabel().align(ControlP5.LEFT, ControlP5.TOP_OUTSIDE).setText(vertCursorName[i] + " On/Off")
      ;
      
-    y += 30;
+    y += 40;
   } 
   
   cp5.addButton("setRange")
@@ -308,6 +319,12 @@ public void sweepToggle(int theValue){
     }else{
       sweepDisplay = false;
     }
+  }
+}
+
+public void vertCursorToggle(int index){
+  if(setupDone){
+    vertCursorToggle[index] = !vertCursorToggle[index];
   }
 }
 
@@ -662,19 +679,18 @@ String numToStr(int inNum){
 void mousePressed(){
   // Test if the mouse over graph
   int thisMouseX = mouseX;
-  int SELECT_THR = 20; 
   if (thisMouseX >= graphX() && thisMouseX <= graphWidth() + graphX() +1){ //<>//
+    int clickFreq = startFreq + hzPerPixel() * (thisMouseX - graphX());
+    //println("clickFreq = " + clickFreq);  
     for (int i = 0; i < NUMBER_OF_VERT_CURSORS; i++) {
-      if (abs(thisMouseX - vertCursorFreq[i]) < SELECT_THR) {
+      if (vertCursorToggle[i] && abs(clickFreq - vertCursorFreq[i]) < clickFreq * 0.001) {
         mouseDragLock = true;
         mouseDragIndex = i;
-        int clickFreq = startFreq + hzPerPixel() * (thisMouseX - graphX());
         vertCursorFreq[i] = clickFreq;
         break;
       }
     }
     lastMouseX = mouseX;
-    //println("clickFreq = " + clickFreq);  
   }
 }
 
