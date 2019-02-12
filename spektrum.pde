@@ -10,7 +10,11 @@ ControlP5 cp5;
 int startFreq = 88000000;
 int stopFreq = 108000000;
 int binStep = 1000;
-int vertCursorFreq = 88000000;
+int vertCursorFreq_default = 88000000;
+String vertCursorName_default = "Cursor";
+int NUMBER_OF_VERT_CURSORS = 5;
+int[] vertCursorFreq = new int[NUMBER_OF_VERT_CURSORS];
+String[] vertCursorName = new String[NUMBER_OF_VERT_CURSORS];
 
 int scaleMin = -110;
 int scaleMax = 40;
@@ -46,15 +50,16 @@ Table table;
 String fileName = "config.csv";  // config file used to save and load program setting like frequency etc.
 boolean setupDone = false;
 boolean frozen = true;
-boolean vertCursor = false;
+boolean[] vertCursor = new boolean[NUMBER_OF_VERT_CURSORS];
 float minMaxTextX = 10;
 float minMaxTextY = 560;
 boolean overGraph = false;
 boolean mouseDragLock = false;
+int mouseDragIndex = 0;
 int lastMouseX;
 color buttonColor = color(127,127,127);
 boolean drawSampleToggle=false;
-boolean vertCursorToggle=true;
+boolean[] vertCursorToggle=new boolean[NUMBER_OF_VERT_CURSORS];
 //=========================
 
 void MsgBox( String Msg, String Title ){
@@ -80,6 +85,7 @@ void setupStartControls(){
   for (int i=0; i<devices.length; i++){
     deviceDropdown.addItem(devices[i], i);
   } 
+  
 }
 
 void setupControls(){
@@ -126,23 +132,25 @@ void setupControls(){
      
   y += 40;
 
-  cp5.addTextfield("vertCursorFreqText")
-    .setPosition(x, y)
-    .setSize((width - 10)/2, 20)
-    .setText(str(vertCursorFreq))
-    .setAutoClear(false)
-    .getCaptionLabel().align(ControlP5.LEFT, ControlP5.TOP_OUTSIDE).setText("Red Cursor")  
-    ;
+  for (int i=0; i<NUMBER_OF_VERT_CURSORS; i++){
+    cp5.addTextfield("vertCursorFreqText" + str(i))
+      .setPosition(x, y)
+      .setSize((width - 10)/2, 20)
+      .setText(str(vertCursorFreq[i]))
+      .setAutoClear(false)
+      .getCaptionLabel().align(ControlP5.LEFT, ControlP5.TOP_OUTSIDE).setText(vertCursorName[i])  
+      ;
+    
+    // toggle vertical sursor on or off
+    cp5.addToggle("vertCursorToggle" + str(i))
+     .setPosition((width - 10)/2 + 50,y)
+     .setSize(20,20)
+     .getCaptionLabel().align(ControlP5.LEFT, ControlP5.TOP_OUTSIDE).setText(vertCursorName[i] + "On/Off")
+     ;
+     
+    y += 30;
+  } 
   
-  // toggle vertical sursor on or off
-  cp5.addToggle("vertCursorToggle")
-   .setPosition((width - 10)/2 + 50,y)
-   .setSize(20,20)
-   .getCaptionLabel().align(ControlP5.LEFT, ControlP5.TOP_OUTSIDE).setText("On/Off")
-   ;
-  
-  y += 30;
-
   cp5.addButton("setRange")
     .setValue(0)
     .setPosition(x+width/4, y)
@@ -309,7 +317,9 @@ public void setRange(int theValue){
     startFreq = parseInt(cp5.get(Textfield.class,"startFreqText").getText());
     stopFreq = parseInt(cp5.get(Textfield.class,"stopFreqText").getText());
     binStep = parseInt(cp5.get(Textfield.class,"binStepText").getText());
-    vertCursorFreq = parseInt(cp5.get(Textfield.class,"vertCursorFreqText").getText());
+    for (int i = 0; i < NUMBER_OF_VERT_CURSORS; i++) {
+      vertCursorFreq[i] = parseInt(cp5.get(Textfield.class,"vertCursorFreqText" + str(i)).getText());
+    }
   }catch(Exception e){
     println("setRange exception.");
     return;
@@ -400,6 +410,13 @@ void setup(){
   }
   
   cp5 = new ControlP5(this);
+
+  for (int i = 0; i < NUMBER_OF_VERT_CURSORS; i++) {
+    vertCursorFreq[i] = vertCursorFreq_default;
+    vertCursorName[i] = vertCursorName_default;
+    vertCursor[i] = false;
+    vertCursorToggle[i] = true;
+  }
   
   setupStartControls();
   println("Reached end of setup.");
@@ -490,9 +507,11 @@ void draw(){
   fill(#03C03C);
   text("Max: " + String.format("%.2f", maxFrequency / 1000) + "kHz " + String.format("%.2f", maxValue) + "dB", minMaxTextX+5, minMaxTextY+40);
  
-  if(vertCursorToggle){
-    setVertCursor();
-    drawVertCursor();
+  for (int i = 0; i < NUMBER_OF_VERT_CURSORS; i++) {
+    if(vertCursorToggle[i]){
+      setVertCursor(i);
+      drawVertCursor(i);
+    }
   }
   
   if(sweepDisplay){
@@ -532,9 +551,15 @@ void loadConfig(){
   binStep = table.getInt(0, "binStep");
   scaleMin = table.getInt(0, "scaleMin");
   scaleMax = table.getInt(0, "scaleMax");
-  vertCursorFreq = table.getInt(0, "vertCursorFreq");
+  for (int i = 0; i < NUMBER_OF_VERT_CURSORS; i++) {
+    vertCursorFreq[i] = table.getInt(i, "vertCursorFreq");
+    vertCursorName[i] = table.getString(i, "vertCursorName");
+  }
   println("Config table " + fileName + " loaded."); 
-  println("startFreq = " + startFreq + " stopFreq = " + stopFreq + " binStep = " + binStep + " scaleMin = " + scaleMin + " scaleMax = ", scaleMax + " vertCusorFreq = " + vertCursorFreq);
+  println("startFreq = " + startFreq + " stopFreq = " + stopFreq + " binStep = " + binStep + " scaleMin = " + scaleMin + " scaleMax = ", scaleMax);
+  for (int i = 0; i < NUMBER_OF_VERT_CURSORS; i++) {
+    println(vertCursorName[i] + " = " + vertCursorFreq[i]);
+  }
 } 
   
 void saveConfig(){
@@ -546,9 +571,15 @@ void saveConfig(){
   table.setInt(0, "binStep", binStep);
   table.setInt(0, "scaleMin", scaleMin);
   table.setInt(0, "scaleMax", scaleMax);
-  table.setInt(0, "vertCursorFreq",vertCursorFreq);
+  for (int i = 0; i < NUMBER_OF_VERT_CURSORS; i++) {
+    table.setInt(i, "vertCursorFreq",vertCursorFreq[i]);
+    table.setString(i, "vertCursorName",vertCursorName[i]);
+  }
   saveTable(table, fileName, "csv");
-  //println("startFreq = " + startFreq + " stopFreq = " + stopFreq + " binStep = " + binStep + " scaleMin = " + scaleMin + " scaleMax = ", scaleMax + " vertCusorFreq = " + vertCursorFreq);
+  //println("startFreq = " + startFreq + " stopFreq = " + stopFreq + " binStep = " + binStep + " scaleMin = " + scaleMin + " scaleMax = ", scaleMax);
+  //for (int i = 0; i < NUMBER_OF_VERT_CURSORS; i++) {
+  //  println(vertCursorName[i] + " = " + vertCursorFreq[i]);
+  //}
   println("Config table " + fileName + " saved.");
 }
  
@@ -568,9 +599,12 @@ void makeConfig(){
       file.createNewFile();
       fw = new FileWriter(file);
       // Write column headers to new config file
-      fw.write("startFreq,stopFreq,binStep,scaleMin,scaleMax,vertCursorFreq\n");
+      fw.write("startFreq,stopFreq,binStep,scaleMin,scaleMax,vertCursorFreq,vertCursorName\n");
       // Write initial default values to new config file
-      fw.write(startFreq + "," + stopFreq + "," + binStep + "," + scaleMin + "," + scaleMax + "," + vertCursorFreq);
+      fw.write(startFreq + "," + stopFreq + "," + binStep + "," + scaleMin + "," + scaleMax + "," + vertCursorFreq_default + "," + vertCursorName_default + "\n");
+      for (int i = 1; i < NUMBER_OF_VERT_CURSORS; i++) {
+        fw.write(",,,,," + vertCursorFreq_default + "," + vertCursorName_default + "\n");
+      }
       fw.flush();
       fw.close();
       println(dataPath(fileName) +  " created succesfully");
@@ -583,36 +617,36 @@ void makeConfig(){
   println("Reached end of makeconfig");
 }
   
-void setVertCursor(){
+void setVertCursor(int index){
   // draw a vertical cursor line on the graph ================================
-  if (vertCursorFreq < startFreq ){
-    vertCursorFreq = startFreq;
-    updateVertCursorText();
-  }else if(vertCursorFreq > stopFreq){
-    vertCursorFreq = stopFreq;
-    updateVertCursorText();  
+  if (vertCursorFreq[index] < startFreq ){
+    vertCursorFreq[index] = startFreq;
+    updateVertCursorText(index);
+  }else if(vertCursorFreq[index] > stopFreq){
+    vertCursorFreq[index] = stopFreq;
+    updateVertCursorText(index);  
   }
       
-  if(mouseDragLock){
-    updateVertCursorText();
+  if(mouseDragLock && index == mouseDragIndex){
+    updateVertCursorText(index);
   }
 }
 //==============================================
-void updateVertCursorText (){
-  cp5.get(Textfield.class,"vertCursorFreqText").setText(str(vertCursorFreq));
+void updateVertCursorText (int index){
+  cp5.get(Textfield.class,"vertCursorFreqText" + str(index)).setText(str(vertCursorFreq[index]));
 }
 
 //==============================================
-void drawVertCursor(){  
+void drawVertCursor(int index){  
   float xBand = (stopFreq - startFreq); 
-  float xCur = (vertCursorFreq - startFreq);
+  float xCur = (vertCursorFreq[index] - startFreq);
   float xPlot = (xCur/xBand)* (graphWidth() + 230 - graphX());  // adjust cursor scale here!
   stroke(#FF0000);
   fill(#FF0000);
   line(graphX()+ xPlot, graphY(), graphX()+ xPlot, graphY()+graphHeight());
-  //println("Bandwidth=" + xBand+ " cursor freq=" + vertCursorFreq +  " xCur=" + xCur + " Cursor =" + xPlot);
+  //println("Bandwidth=" + xBand+ " cursor freq=" + vertCursorFreq[index] +  " xCur=" + xCur + " Cursor =" + xPlot);
   textAlign(CENTER);
-  text(numToStr(vertCursorFreq)  + " Hz", graphX() + xPlot, graphY()  - 10);
+  text(numToStr(vertCursorFreq[index])  + " Hz", graphX() + xPlot, graphY()  - 10);
 }
 
 // ====================================================================
@@ -628,10 +662,17 @@ String numToStr(int inNum){
 void mousePressed(){
   // Test if the mouse over graph
   int thisMouseX = mouseX;
+  int SELECT_THR = 20; 
   if (thisMouseX >= graphX() && thisMouseX <= graphWidth() + graphX() +1){ //<>//
-    mouseDragLock = true; 
-    int clickFreq = startFreq + hzPerPixel() * (thisMouseX - graphX());
-    vertCursorFreq = clickFreq;
+    for (int i = 0; i < NUMBER_OF_VERT_CURSORS; i++) {
+      if (abs(thisMouseX - vertCursorFreq[i]) < SELECT_THR) {
+        mouseDragLock = true;
+        mouseDragIndex = i;
+        int clickFreq = startFreq + hzPerPixel() * (thisMouseX - graphX());
+        vertCursorFreq[i] = clickFreq;
+        break;
+      }
+    }
     lastMouseX = mouseX;
     //println("clickFreq = " + clickFreq);  
   }
@@ -640,8 +681,8 @@ void mousePressed(){
 void mouseDragged(){
   if(mouseDragLock){
     int thisMouseX = mouseX;
-    vertCursorFreq = vertCursorFreq + (thisMouseX - lastMouseX) * hzPerPixel();
-    vertCursorFreq = round(vertCursorFreq/binStep) * binStep; // only allow frequency of multiples of binStep
+    vertCursorFreq[mouseDragIndex] = vertCursorFreq[mouseDragIndex] + (thisMouseX - lastMouseX) * hzPerPixel();
+    vertCursorFreq[mouseDragIndex] = round(vertCursorFreq[mouseDragIndex]/binStep) * binStep; // only allow frequency of multiples of binStep
     lastMouseX = thisMouseX;
   }
 }
