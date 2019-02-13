@@ -12,9 +12,10 @@ int stopFreq = 108000000;
 int binStep = 1000;
 int vertCursorFreq_default = 88000000;
 String vertCursorName_default = "Cursor";
-int NUMBER_OF_VERT_CURSORS = 5;
-int[] vertCursorFreq = new int[NUMBER_OF_VERT_CURSORS];
-String[] vertCursorName = new String[NUMBER_OF_VERT_CURSORS];
+int MAX_NUMBER_OF_VERT_CURSORS = 20;
+int NUMBER_OF_VERT_CURSORS_TO_MAKE = 4;
+int[] vertCursorFreq;
+String[] vertCursorName;
 
 int scaleMin = -110;
 int scaleMax = 40;
@@ -50,7 +51,6 @@ Table table;
 String fileName = "config.csv";  // config file used to save and load program setting like frequency etc.
 boolean setupDone = false;
 boolean frozen = true;
-boolean[] vertCursor = new boolean[NUMBER_OF_VERT_CURSORS];
 float minMaxTextX = 10;
 float minMaxTextY = 560;
 boolean overGraph = false;
@@ -59,7 +59,7 @@ int mouseDragIndex = 0;
 int lastMouseX;
 color buttonColor = color(127,127,127);
 boolean drawSampleToggle=false;
-boolean[] vertCursorToggle=new boolean[NUMBER_OF_VERT_CURSORS];
+boolean[] vertCursorToggle;
 //=========================
 
 void MsgBox( String Msg, String Title ){
@@ -84,7 +84,7 @@ void setupStartControls(){
   
   for (int i=0; i<devices.length; i++){
     deviceDropdown.addItem(devices[i], i);
-  } 
+  }
   
 }
 
@@ -141,7 +141,7 @@ void setupControls(){
      
   y += 40;
 
-  for (int i=0; i<NUMBER_OF_VERT_CURSORS; i++){
+  for (int i = 0; i < vertCursorFreq.length; i++){
     cp5.addTextfield("vertCursorFreqText" + str(i))
       .setPosition(x, y)
       .setSize((width - 10)/2, 20)
@@ -153,10 +153,10 @@ void setupControls(){
     // toggle vertical sursor on or off
     cp5.addToggle("vertCursorToggle" + str(i))
      .addCallback(cursorToggleCallbackListener)
-     .setValue(1)
+     .setValue(vertCursorToggle[i])
      .setPosition((width - 10)/2 + 50,y)
      .setSize(20,20)
-     .getCaptionLabel().align(ControlP5.LEFT, ControlP5.TOP_OUTSIDE).setText(vertCursorName[i] + " On/Off")
+     .getCaptionLabel().align(ControlP5.LEFT, ControlP5.TOP_OUTSIDE).setText("On/Off")
      ;
      
     y += 40;
@@ -334,7 +334,7 @@ public void setRange(int theValue){
     startFreq = parseInt(cp5.get(Textfield.class,"startFreqText").getText());
     stopFreq = parseInt(cp5.get(Textfield.class,"stopFreqText").getText());
     binStep = parseInt(cp5.get(Textfield.class,"binStepText").getText());
-    for (int i = 0; i < NUMBER_OF_VERT_CURSORS; i++) {
+    for (int i = 0; i < vertCursorFreq.length; i++) {
       vertCursorFreq[i] = parseInt(cp5.get(Textfield.class,"vertCursorFreqText" + str(i)).getText());
     }
   }catch(Exception e){
@@ -427,13 +427,6 @@ void setup(){
   }
   
   cp5 = new ControlP5(this);
-
-  for (int i = 0; i < NUMBER_OF_VERT_CURSORS; i++) {
-    vertCursorFreq[i] = vertCursorFreq_default;
-    vertCursorName[i] = vertCursorName_default;
-    vertCursor[i] = false;
-    vertCursorToggle[i] = true;
-  }
   
   setupStartControls();
   println("Reached end of setup.");
@@ -524,7 +517,7 @@ void draw(){
   fill(#03C03C);
   text("Max: " + String.format("%.2f", maxFrequency / 1000) + "kHz " + String.format("%.2f", maxValue) + "dB", minMaxTextX+5, minMaxTextY+40);
  
-  for (int i = 0; i < NUMBER_OF_VERT_CURSORS; i++) {
+  for (int i = 0; i < vertCursorToggle.length; i++) {
     if(vertCursorToggle[i]){
       setVertCursor(i);
       drawVertCursor(i);
@@ -560,6 +553,21 @@ void exitProgram(){
   if(setupDone)  exit();
 }
 
+int determineNumberOfCursors() {
+  int[] tempArray = new int[MAX_NUMBER_OF_VERT_CURSORS];
+  
+  for (int i = 0; i < tempArray.length; i++) {
+    try {
+      tempArray[i] = table.getInt(i, "vertCursorFreq");
+    } catch (ArrayIndexOutOfBoundsException e) {
+      // No we know how many Cursors are defined in the config file
+      return i;
+    }
+  }
+  return tempArray.length;
+  
+}
+
 void loadConfig(){
   //================ Function added by DJN 24 Aug 2017
   table = loadTable(fileName, "header");
@@ -568,13 +576,28 @@ void loadConfig(){
   binStep = table.getInt(0, "binStep");
   scaleMin = table.getInt(0, "scaleMin");
   scaleMax = table.getInt(0, "scaleMax");
-  for (int i = 0; i < NUMBER_OF_VERT_CURSORS; i++) {
+  
+  int numberOfCursors = determineNumberOfCursors();
+  
+  // Init the cursor-related stuff
+  vertCursorFreq = new int[numberOfCursors];
+  vertCursorName = new String[numberOfCursors];
+  vertCursorToggle = new boolean[numberOfCursors];
+  for (int i = 0; i < vertCursorFreq.length; i++) {
+    vertCursorFreq[i] = vertCursorFreq_default;
+    vertCursorName[i] = vertCursorName_default;
+    vertCursorToggle[i] = true;
+  }
+  
+  // Actually read the values for the cursors from the config file
+  for (int i = 0; i < vertCursorFreq.length; i++) {
     vertCursorFreq[i] = table.getInt(i, "vertCursorFreq");
     vertCursorName[i] = table.getString(i, "vertCursorName");
   }
+  
   println("Config table " + fileName + " loaded."); 
   println("startFreq = " + startFreq + " stopFreq = " + stopFreq + " binStep = " + binStep + " scaleMin = " + scaleMin + " scaleMax = ", scaleMax);
-  for (int i = 0; i < NUMBER_OF_VERT_CURSORS; i++) {
+  for (int i = 0; i < vertCursorFreq.length; i++) {
     println(vertCursorName[i] + " = " + vertCursorFreq[i]);
   }
 } 
@@ -588,7 +611,7 @@ void saveConfig(){
   table.setInt(0, "binStep", binStep);
   table.setInt(0, "scaleMin", scaleMin);
   table.setInt(0, "scaleMax", scaleMax);
-  for (int i = 0; i < NUMBER_OF_VERT_CURSORS; i++) {
+  for (int i = 0; i < vertCursorFreq.length; i++) {
     table.setInt(i, "vertCursorFreq",vertCursorFreq[i]);
     table.setString(i, "vertCursorName",vertCursorName[i]);
   }
@@ -618,9 +641,9 @@ void makeConfig(){
       // Write column headers to new config file
       fw.write("startFreq,stopFreq,binStep,scaleMin,scaleMax,vertCursorFreq,vertCursorName\n");
       // Write initial default values to new config file
-      fw.write(startFreq + "," + stopFreq + "," + binStep + "," + scaleMin + "," + scaleMax + "," + vertCursorFreq_default + "," + vertCursorName_default + "\n");
-      for (int i = 1; i < NUMBER_OF_VERT_CURSORS; i++) {
-        fw.write(",,,,," + vertCursorFreq_default + "," + vertCursorName_default + "\n");
+      fw.write(startFreq + "," + stopFreq + "," + binStep + "," + scaleMin + "," + scaleMax + "," + vertCursorFreq_default + "," + vertCursorName_default + "0\n");
+      for (int i = 1; i < NUMBER_OF_VERT_CURSORS_TO_MAKE; i++) {
+        fw.write(",,,,," + vertCursorFreq_default + "," + vertCursorName_default + str(i) + "\n");
       }
       fw.flush();
       fw.close();
@@ -663,7 +686,7 @@ void drawVertCursor(int index){
   line(graphX()+ xPlot, graphY(), graphX()+ xPlot, graphY()+graphHeight());
   //println("Bandwidth=" + xBand+ " cursor freq=" + vertCursorFreq[index] +  " xCur=" + xCur + " Cursor =" + xPlot);
   textAlign(CENTER);
-  text(numToStr(vertCursorFreq[index])  + " Hz", graphX() + xPlot, graphY()  - 10);
+  text(vertCursorName[index], graphX() + xPlot, graphY()  - 10);
 }
 
 // ====================================================================
@@ -682,7 +705,7 @@ void mousePressed(){
   if (thisMouseX >= graphX() && thisMouseX <= graphWidth() + graphX() +1){ //<>//
     int clickFreq = startFreq + hzPerPixel() * (thisMouseX - graphX());
     //println("clickFreq = " + clickFreq);  
-    for (int i = 0; i < NUMBER_OF_VERT_CURSORS; i++) {
+    for (int i = 0; i < vertCursorFreq.length; i++) {
       if (vertCursorToggle[i] && abs(clickFreq - vertCursorFreq[i]) < clickFreq * 0.001) {
         mouseDragLock = true;
         mouseDragIndex = i;
