@@ -1,2 +1,0 @@
-startFreq,stopFreq,binStep,scaleMin,scaleMax,rfGain,minFreq,maxFreq,ifOffset,ifType
-87562233,88852357,2000,-23,7,0,24000000,1800000000,0,0

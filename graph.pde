@@ -63,9 +63,6 @@ void drawGraphMatt(double minValue, double maxValue, int minFreq, int maxFreq) {
   double yStep = (maxValue - minValue) / horizontals;
   double yPos = maxValue;
 
-  // stroke(#A7A7A7);
-  // fill(#A7A7A7);
-  
   stroke(#474747);
   fill(#A7A7A7);
 
