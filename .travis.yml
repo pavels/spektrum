@@ -1,0 +1,117 @@
+language: shell
+os: 
+  - windows
+  - linux
+before_install:
+- |-
+    case $TRAVIS_OS_NAME in
+      windows)
+        [[ ! -f C:/tools/msys64/msys2_shell.cmd ]] && rm -rf C:/tools/msys64
+        choco uninstall -y mingw
+        choco upgrade --no-progress -y msys2
+        choco upgrade --no-progress -y jdk8
+        choco upgrade --no-progress -y maven
+        choco upgrade --no-progress -y processing
+        export msys2='cmd //C RefreshEnv.cmd '
+        export msys2+='& set MSYS=winsymlinks:nativestrict '
+        export msys2+='& C:\\tools\\msys64\\msys2_shell.cmd -defterm -no-start'
+        export mingw64="$msys2 -mingw64 -full-path -here -c "\"\$@"\" --"
+        export msys2+=" -msys2 -c "\"\$@"\" --"
+        $msys2 pacman --sync --noconfirm --needed mingw-w64-x86_64-toolchain
+        $msys2 pacman --sync --noconfirm --needed mingw-w64-x86_64-libusb
+        $msys2 pacman --sync --noconfirm --needed mingw-w64-x86_64-cmake
+        $msys2 pacman --sync --noconfirm --needed wget zip unzip
+        taskkill //IM gpg-agent.exe //F  # https://travis-ci.community/t/4967
+        export PATH=/C/tools/msys64/mingw64/bin:$PATH
+        export MAKE=mingw32-make  # so that Autotools can find it
+        ;;
+      linux)
+        sudo apt-get update
+        sudo apt-get -y install libusb-1.0-0-dev maven wget unzip
+        cd /opt
+        wget https://download.processing.org/processing-3.5.4-linux64.tgz
+        tar -xf processing-3.5.4-linux64.tgz
+        cd "$TRAVIS_BUILD_DIR"
+        ;;
+    esac
+
+before_cache:
+- |-
+    case $TRAVIS_OS_NAME in
+      windows)
+        # https://unix.stackexchange.com/a/137322/107554
+        $msys2 pacman --sync --clean --noconfirm        
+        ;;
+    esac
+
+cache:
+    directories:
+    - $HOME/AppData/Local/Temp/chocolatey
+    - /C/tools/msys64
+
+script:
+- |-
+    case $TRAVIS_OS_NAME in
+      windows)
+        $mingw64 git clone https://github.com/pavels/rtl-sdr
+        cd rtl-sdr
+        $mingw64 cmake . -G "MinGW Makefiles" -DCMAKE_SH="CMAKE_SH-NOTFOUND"
+        $mingw64 $MAKE
+        cd ..
+        mkdir -p $HOME/Documents/Processing/libraries/rtlspektrum/library
+        cd "$HOME/Documents/Processing/libraries"
+        $mingw64 wget https://github.com/sojamo/controlp5/releases/download/v2.2.5/controlP5-2.2.5.zip
+        $mingw64 unzip -x controlP5-2.2.5.zip
+        cd "$TRAVIS_BUILD_DIR"
+        $mingw64 git clone https://github.com/pavels/processing-rtlspektum-lib
+        cd processing-rtlspektum-lib
+        $mingw64 mvn package
+        cp library.properties "$HOME/Documents/Processing/libraries/rtlspektrum/"
+        cp target/rtlspektrum.jar "$HOME/Documents/Processing/libraries/rtlspektrum/library/"
+        cp target/lib/bridj-0.7.0.jar "$HOME/Documents/Processing/libraries/rtlspektrum/library/bridj.jar"
+        cd ..
+        $mingw64 processing-java --sketch="$TRAVIS_BUILD_DIR" --output="$TRAVIS_BUILD_DIR\\spektrum" --force --export
+        mkdir -p spektrum/data
+        cp rtl-sdr/src/librtlpower.dll spektrum/lib/
+        cp rtl-sdr/src/librtlsdr.dll spektrum/lib/
+        cp C:/tools/msys64/mingw64/bin/libusb-1.0.dll spektrum/lib/
+        $mingw64 zip -r spektrum-win64.zip spektrum
+        ;;
+      linux)        
+        git clone https://github.com/pavels/rtl-sdr
+        cd rtl-sdr
+        cmake .
+        make
+        cd ..
+        mkdir -p $HOME/sketchbook/libraries/rtlspektrum/library
+        cd "$HOME/sketchbook/libraries"
+        wget https://github.com/sojamo/controlp5/releases/download/v2.2.5/controlP5-2.2.5.zip
+        unzip -x controlP5-2.2.5.zip    
+        cd "$TRAVIS_BUILD_DIR"    
+        git clone https://github.com/pavels/processing-rtlspektum-lib
+        cd processing-rtlspektum-lib
+        mvn package
+        cp library.properties "$HOME/sketchbook/libraries/rtlspektrum/"
+        cp target/rtlspektrum.jar "$HOME/sketchbook/libraries/rtlspektrum/library/"
+        cp target/lib/bridj-0.7.0.jar "$HOME/sketchbook/libraries/rtlspektrum/library/bridj.jar"        
+        cd ..        
+        /opt/processing-3.5.4/processing-java --sketch="$TRAVIS_BUILD_DIR" --output="$TRAVIS_BUILD_DIR/spektrum" --force --export        
+        mkdir -p spektrum/data
+        cp -L rtl-sdr/src/librtlpower.so spektrum/lib/
+        cp -L rtl-sdr/src/librtlsdr.so spektrum/lib/  
+        tar -czf spektrum-linux64.tar.gz spektrum
+        ;;
+    esac      
+
+deploy:
+  provider: releases
+  api_key:
+    secure: t579Arynmfj9PK1Pjpwwd374TBzZeP7ddETBzKsSw+uMbqOtpFBVF6VBmFZs0jG8XcUHMaqMt27Zs2uXuInU4/4sOqXV94JGIei6OwVBdmD3Qho6ssgYdQQH1HolJv3F5i0TmI0Zk7DIx2JmR9a6cqN3Y4AgeJdnMvN8c8bItwBrp1uLkisTd2PM++ovI0rmkFIKxsvyYguR2wT6zsvOFiokpMGjH9CtnEyp8dcxqJITMKpYOIpk85VUU8l9cBBGYDyasakVuF1VankWHbbqntZ0JUoorPbw3/7+gXot1LGe5+VVlgzKfdSKp6tqOX74g72etWnDzFhQfJdHU4jVPdWMCW+zlsK72tb+dymQ4nJJXHvQS1TUAp9c3PPGpehg7cdWlg7GrP2FJwzhqyLRdiJkXTH4X9I8bTbPzTrQTdz1HAIGRBuKCRDgYrK7V6TIGMh2fxXBTeoqP8wa9EqRfLwP65uh3+FkeoO5pQyKhsyvHiswRKKjaECbSWKVtW4SH7C0qi+HNqYLKz7DPc/aRxhue5flAA9JJAYTuEqk8c759DSnTiVmAABoZLqo0lBARUA0ZeY6MXvLY773h8ZeJuVs4SrBhrqefPczOCw0u5U78kDNPwpBL6txE0nSG4YpJKdJf0QsSH3Pw7anQ50zusheGgSL3RZnTX5iaUxE/5Y=
+  file: 
+    - spektrum-win64.zip
+    - spektrum-linux64.tar.gz
+  skip_cleanup: true
+  draft: true
+  on:
+    tags: true
+
