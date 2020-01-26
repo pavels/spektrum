@@ -111,7 +111,6 @@ deploy:
     - spektrum-win64.zip
     - spektrum-linux64.tar.gz
   skip_cleanup: true
-  draft: true
   on:
     tags: true
 
