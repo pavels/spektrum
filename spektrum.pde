@@ -59,8 +59,6 @@ final int  IF_TYPE_BELOW     = 2;
 // Configuration
 //
 final int nrOfConfigurations = 10;			// First element is used for the Autosave functionality.
-final int DO_NOT_SAVE_CONFIGURATION = 0;
-final int SAVE_CONFIGURATION = 1;
 
 final int PRESET_SAVE = 1;
 final int PRESET_LOAD = 2;
@@ -96,7 +94,7 @@ public class configurationClass {
 }
 
 
-int timeToSet = 1;  // GRGNICK add
+int timeToSet = 0;  // GRGNICK add
 int itemToSet = 0;  // GRGNICK add -- 1 is Gain, 2 is Frequency
 int infoText1X = 0;
 int infoText1Y = 0;
@@ -1003,25 +1001,25 @@ public void cropPrcntTxt(String tmpText) {
   cropPercent = parseInt(tmpText);
   cropPercent = max( min(70, cropPercent ), 0 );
   cp5.get(Textfield.class, "cropPrcntTxt").setText(str(cropPercent));
-  setRangeButton(0);
+  setRangeButton();
 }
 
 // Change the active configuration from the drop down list
 //
 public void configurationList(int confValue) {
   if ( configurationOperation == PRESET_SAVE ) {
-    table.setString( confValue, "configName", cp5.get(Textfield.class, "presetName").getText());
+    configurationName = cp5.get(Textfield.class, "presetName").getText();
+    table.setString( confValue, "configName", configurationName);
     saveConfigToIndx( confValue );
     configurationDropdown.clear();
     for (int i=0; i<nrOfConfigurations; i++) {
       configurationDropdown.addItem( table.getString(i, "configName"), i);
     }
+    configurationActive = confValue;
   } else {	// Load
     configurationActive = confValue;
     println("configurationList: Setting active configuration to " + confValue );
-    loadConfig();
-    loadConfigPostCreation();
-    zoomIn();
+    presetRestore();
   }
 
   configurationOperation = NONE;
@@ -1060,7 +1058,6 @@ public void savePreset() {
 public void presetRestore() {
   loadConfig();
   loadConfigPostCreation();
-  zoomIn();
 }
 
 public void openSerial() {
@@ -1192,11 +1189,11 @@ public int ifCorrectedFreq( int inFreq ) {
   return tmpFreq;
 }
 
-public void setRangeButton(int saveConfig) {
-  setRange(SAVE_CONFIGURATION);
+public void setRangeButton() {
+  setRange();
 }
 
-public void setRange(int saveConfig) {
+public void setRange() {
   // Button color indicating change
   cp5.get(Button.class, "setRangeButton").setColorBackground( buttonColor );
 
@@ -1215,7 +1212,7 @@ public void setRange(int saveConfig) {
 
   if (startFreq == 0 || stopFreq <= startFreq || binStep < 1) return;
 
-  if ( saveConfig == SAVE_CONFIGURATION ) configurationSaveDelay = CONFIG_SAVE_DELAY;
+  configurationSaveDelay = CONFIG_SAVE_DELAY;
 
   double tmpCrop = (double) ( max( min(70, cropPercent ), 0 ) / 100.0);
   relMode = 0;
@@ -1225,7 +1222,7 @@ public void setRange(int saveConfig) {
   println("setRange: CROP set to " + tmpCrop);
 }
 
-public void setScale(int theValue) {
+public void setScale() {
   // Button color indicating change
   cp5.get(Button.class, "setScale").setColorBackground( buttonColor );
 
@@ -1244,14 +1241,14 @@ public void setScale(int theValue) {
 }
 
 
-public void resetScale(int theValue) {
+public void resetScale() {
   scaleMin = fullScaleMin;
   scaleMax = fullScaleMax;
   cp5.get(Textfield.class, "scaleMinText").setText(str(scaleMin));
   cp5.get(Textfield.class, "scaleMaxText").setText(str(scaleMax));
 }
 
-public void autoScale(int theValue) {
+public void autoScale() {
   if (setupDone) {
     if (minmaxDisplay) {
       scaleMin = (int)(minValue - abs((float)minValue*0.1));
@@ -1305,8 +1302,8 @@ void zoomBack() {
   zoomBackScalMin = scaleMin;
   zoomBackScalMax = scaleMax;
 
-  setScale(1);
-  setRange(SAVE_CONFIGURATION);
+  setScale();
+  setRange();
 }
 
 void zoomIn() {
@@ -1323,8 +1320,8 @@ void zoomIn() {
   cp5.get(Textfield.class, "scaleMinText").setText( str(scaleMax - ( ( (cursorHorizontalBottomY - graphY()) * gainPerPixel() ) / 1000 )) );
   cp5.get(Textfield.class, "scaleMaxText").setText( str(scaleMax - ( ( (cursorHorizontalTopY - graphY()) * gainPerPixel() ) / 1000 )) );
 
-  setScale(SAVE_CONFIGURATION);
-  setRange(1);
+  setScale();
+  setRange();
 }
 
 public void toggleRelMode(int theValue) {
@@ -1651,13 +1648,11 @@ void draw() {
   fill(#03C03C);
   text("Max: " + String.format("%.2f", maxFrequency / 1000) + "kHz " + String.format("%.2f", maxValue) + "dB", minMaxTextX +5, minMaxTextY+40);
 
-
   // Cursors and measurements
   //
   if (vertCursorToggle) {
     drawVertCursor();
   }
-
 
   // UI seperator lines
   //
@@ -1705,11 +1700,11 @@ void draw() {
     }
   } else if ( timeToSet == 1 ) {
     timeToSet = 0;
-    if (itemToSet == ITEM_FREQUENCY) setRange(SAVE_CONFIGURATION);
-    if (itemToSet == ITEM_GAIN) setScale(1);
+    if (itemToSet == ITEM_FREQUENCY) setRange();
+    if (itemToSet == ITEM_GAIN) setScale();
     if (itemToSet == ITEM_ZOOM) {
-      setScale(1);
-      setRange(SAVE_CONFIGURATION);
+      setScale();
+      setRange();
     }
 
     infoText1X = 0;
@@ -1838,7 +1833,7 @@ public void resetMin() {
   //Set the start freq at full range
 
   cp5.get(Textfield.class, "startFreqText").setText( str(fullRangeMin) );
-  setRange(SAVE_CONFIGURATION);
+  setRange();
 }
 
 
@@ -1846,13 +1841,16 @@ void resetMax() {
   //Set the stop freq full range
 
   cp5.get(Textfield.class, "stopFreqText").setText( str(fullRangeMax) );
-  setRange(SAVE_CONFIGURATION);
+  setRange();
 }
-
-
 
 void loadConfigPostCreation()
 {
+  cp5.get(Textfield.class, "startFreqText").setText( str(startFreq) );
+  cp5.get(Textfield.class, "stopFreqText").setText( str(stopFreq) );
+  cp5.get(Textfield.class, "scaleMinText").setText( str(scaleMin) );
+  cp5.get(Textfield.class, "scaleMaxText").setText( str(scaleMax) );
+
   if (ifType == IF_TYPE_ABOVE) {
     cp5.get(Toggle.class, "ifMinusToggle").setValue(0);
     cp5.get(Toggle.class, "ifPlusToggle").setValue(1);
@@ -1866,11 +1864,14 @@ void loadConfigPostCreation()
 
   cp5.get(Textfield.class, "ifOffset").setText(str(ifOffset));
   cp5.get(Textfield.class, "cropPrcntTxt").setText(str(cropPercent));
+
+  setScale();
+  setRange();
+
+  configurationSaveDelay = 0;
 }
 
 void loadConfig() {
-
-  //================ Function added by DJN 24 Aug 2017
   table = loadTable(fileName, "header");
 
   startFreq = table.getInt(configurationActive, "startFreq");
@@ -1884,7 +1885,6 @@ void loadConfig() {
 
   ifOffset = table.getInt(configurationActive, "ifOffset");
   ifType = table.getInt(configurationActive, "ifType");
-
   cropPercent = table.getInt(configurationActive, "cropPrcnt");
 
   configurationName = table.getString(configurationActive, "configName");
@@ -1939,7 +1939,7 @@ void saveConfigToIndx( int configIndx ) {
 
     saveTable(table, fileName, "csv");
 
-    println("STORE TO " +  configurationActive + " : startFreq = " + startFreq + " stopFreq = " + stopFreq + " binStep = " + binStep + " scaleMin = " +
+    println("STORE TO " +  configIndx + " : startFreq = " + startFreq + " stopFreq = " + stopFreq + " binStep = " + binStep + " scaleMin = " +
       scaleMin + " scaleMax = ", scaleMax + " rfGain = " + rfGain + " fullRangeMin = " + fullRangeMin + "  fullRangeMax = " + fullRangeMax +
       " ifOffset = " + ifOffset + " ifType = " + ifType);
     println("Config table " + fileName + " saved.");
@@ -2113,7 +2113,7 @@ void mousePressed(MouseEvent evnt) {
     if (mouseButton == CENTER) {
       resetMin();
       resetMax();
-      resetScale(1);
+      resetScale();
     };
     if (mouseButton == LEFT) zoomIn() ;        // TAG01 RIGHT->LEFT was RIGHT
 
@@ -2315,7 +2315,7 @@ void mouseReleased() {
       cp5.get(Textfield.class, "scaleMinText").setText( str(scaleMin) );
       cp5.get(Textfield.class, "scaleMaxText").setText( str(scaleMax) );
 
-      setScale(1);
+      setScale();
       println("deltaDB: " + numToStr(deltaDB) + ", -New Scale: \n" + "  LOWER:" + numToStr(scaleMin) + ",  UPPER:" + numToStr(scaleMax) );
     }
 
@@ -2344,7 +2344,7 @@ void mouseReleased() {
 
       println("deltaF: " + numToStr(deltaF) + ", -New Freq: \n" + "  START:" + numToStr(startFreq) + ",  STOP:" + numToStr(stopFreq) );
 
-      setRange(1);
+      setRange();
     }
   }
 }
