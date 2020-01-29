@@ -1,6 +1,6 @@
 # Spektrum
 
-![Travis CI](https://api.travis-ci.com/pavels/spektrum.svg)
+[![Travis CI](https://api.travis-ci.com/pavels/spektrum.svg)](https://travis-ci.com/pavels/spektrum/builds)
 
 Spektrum is a spectrum analyzer software for use with [rtl-sdr](http://sdr.osmocom.org/trac/wiki/rtl-sdr).
 
