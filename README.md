@@ -12,35 +12,35 @@ FM frequency band             |  433 MHz antenna measurement
 
 User interface with Tabs: | Area/Line option 
 :-------------------------: | :-------------------------:
-![ Latest UI ](https://github.com/SV8ARJ/spektrum/raw/master/screenshots/newUI01.png) |![Area graph option ](https://github.com/SV8ARJ/spektrum/raw/master/screenshots/FilledGraph.png)
+![ Latest UI ](https://github.com/pavels/spektrum/raw/master/screenshots/newUI01.png) |![Area graph option ](https://github.com/pavels/spektrum/raw/master/screenshots/FilledGraph.png)
 
 Mouse wheel zoom from middle of graph: | Mouse wheel close to graph edges adjusts limits 
 :-------------------------: | :-------------------------:
-![ Mouse wheel zoom ](https://github.com/SV8ARJ/spektrum/raw/master/screenshots/zoomBox.png) |![Double right-click or ZOOM button ](https://github.com/SV8ARJ/spektrum/raw/master/screenshots/ChangingLowLimit.png)
+![ Mouse wheel zoom ](https://github.com/pavels/spektrum/raw/master/screenshots/zoomBox.png) |![Double right-click or ZOOM button ](https://github.com/pavels/spektrum/raw/master/screenshots/ChangingLowLimit.png)
 
 The zoom area and measurements with cursors: | Zoomed in area 
 :-------------------------: | :-------------------------:
-![ Dual Cursor set ](https://github.com/SV8ARJ/spektrum/raw/master/screenshots/ZoomArea01.png) |![Double right-click or ZOOM button ](https://github.com/SV8ARJ/spektrum/raw/master/screenshots/ZoomArea02.png)
+![ Dual Cursor set ](https://github.com/pavels/spektrum/raw/master/screenshots/ZoomArea01.png) |![Double right-click or ZOOM button ](https://github.com/pavels/spektrum/raw/master/screenshots/ZoomArea02.png)
 
 Drag graph with middle mouse button: | Area of interest centered 
 :-------------------------: | :-------------------------:
-![ Graph is not centered ](https://github.com/SV8ARJ/spektrum/raw/master/screenshots/moving01.png) |![After drag ](https://github.com/SV8ARJ/spektrum/raw/master/screenshots/moving02.png)
+![ Graph is not centered ](https://github.com/pavels/spektrum/raw/master/screenshots/moving01.png) |![After drag ](https://github.com/pavels/spektrum/raw/master/screenshots/moving02.png)
 
 Reference save/display: |  Averaging (video)
 :-------------------------: | :-------------------------:
-![ Reference save/display ](https://github.com/SV8ARJ/spektrum/raw/master/screenshots/referenceGraph.png) | ![ Averaging ](https://github.com/SV8ARJ/spektrum/raw/master/screenshots/Averaging01.png) 
+![ Reference save/display ](https://github.com/pavels/spektrum/raw/master/screenshots/referenceGraph.png) | ![ Averaging ](https://github.com/pavels/spektrum/raw/master/screenshots/Averaging01.png) 
 
 Min Max hold & Median: |  VHF band scan with Max hold
 :-------------------------: | :-------------------------:
-![ Min Max hold & Median: ](https://github.com/SV8ARJ/spektrum/raw/master/screenshots/MinMaxMedian.png) | ![ VHF band scan with Max hold ](https://github.com/SV8ARJ/spektrum/raw/master/screenshots/MaxHoldScanVHF.png) 
+![ Min Max hold & Median: ](https://github.com/pavels/spektrum/raw/master/screenshots/MinMaxMedian.png) | ![ VHF band scan with Max hold ](https://github.com/pavels/spektrum/raw/master/screenshots/MaxHoldScanVHF.png) 
 
 Basic support for IF. |  Average stored as a reference and shifted up.
 :-------------------------: | :-------------------------:
-![ Basic support for IF ](https://github.com/SV8ARJ/spektrum/raw/master/screenshots/upDownConverter.png) | ![ Average stored as a reference and shifted up. ](https://github.com/SV8ARJ/spektrum/raw/master/screenshots/referenceOffset.png) 
+![ Basic support for IF ](https://github.com/pavels/spektrum/raw/master/screenshots/upDownConverter.png) | ![ Average stored as a reference and shifted up. ](https://github.com/pavels/spektrum/raw/master/screenshots/referenceOffset.png) 
 
 RTL Power croping : OFF. |  RTL Power croping : ON.
 :-------------------------: | :-------------------------:
-![ Croping off ](https://github.com/SV8ARJ/spektrum/raw/master/screenshots/crop-off.png) | ![ Croping on ](https://github.com/SV8ARJ/spektrum/raw/master/screenshots/crop-on.png) 
+![ Croping off ](https://github.com/pavels/spektrum/raw/master/screenshots/crop-off.png) | ![ Croping on ](https://github.com/pavels/spektrum/raw/master/screenshots/crop-on.png) 
 
 Quick Start
 -----------
