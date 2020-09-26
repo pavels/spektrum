@@ -612,7 +612,7 @@ void setupControls() {
   y+=35;
 
   cp5.addTextfield("scaleMinText")
-    .setPosition(60, y)
+    .setPosition(70, y)
     .setSize(25, 20)
     .setText(str(scaleMin))
     .setAutoClear(false)
@@ -622,7 +622,7 @@ void setupControls() {
 
 
   cp5.addTextfield("scaleMaxText")
-    .setPosition(90, y)
+    .setPosition(100, y)
     .setSize(25, 20)
     .setText(str(scaleMax))
     .setAutoClear(false)
@@ -631,7 +631,7 @@ void setupControls() {
   cp5.getController("scaleMaxText").moveTo(tabLabels[TAB_MEASURE]);
 
   cp5.addButton("setScale")
-    .setPosition(120, y)
+    .setPosition(130, y)
     .setSize(60, 20)
     .setColorBackground(buttonColor)
     .setColorLabel(buttonColorText)
@@ -643,7 +643,7 @@ void setupControls() {
   //
   cp5.addTextlabel("label")
     .setText("GAIN")
-    .setPosition(x, y-12)
+    .setPosition(x+10, y-12)
     .setSize(20, 20);
   cp5.getController("label").moveTo(tabLabels[TAB_MEASURE]);
 
@@ -652,35 +652,52 @@ void setupControls() {
   cp5.addKnob("rfGain")
     .setRange(gains[0], gains[gains.length-1])
     .setValue(50)
-    .setPosition(x, y  )
+    .setPosition(x+10, y  )
     .setRadius(15)
     .setDragDirection(Knob.VERTICAL)
     .getCaptionLabel().align(ControlP5.LEFT, ControlP5.TOP_OUTSIDE).setText("")
     ;
   cp5.getController("rfGain").moveTo(tabLabels[TAB_MEASURE]);
 
-  cp5.addButton("rfGain01")
+  cp5.addButton("rfGain00")
     .setPosition(x, y+40)
     .setSize(9, 20)
     .setColorLabel(buttonColorText)
     .setColorBackground(buttonColor).getCaptionLabel().align(ControlP5.CENTER, ControlP5.CENTER).setText("")
     ;
-  cp5.addButton("rfGain02")
+
+  cp5.addButton("rfGain01")
     .setPosition(x+10, y+40)
+    .setSize(9, 20)
+    .setColorLabel(buttonColorText)
+    .setColorBackground(buttonColor).getCaptionLabel().align(ControlP5.CENTER, ControlP5.CENTER).setText("")
+    ;
+  cp5.addButton("rfGain02")
+    .setPosition(x+20, y+40)
     .setSize(9, 20)
     .setColorLabel(buttonColorText)
     .setColorBackground(buttonColor).getCaptionLabel().align(ControlP5.CENTER, ControlP5.CENTER).setText("")
     ;
 
   cp5.addButton("rfGain03")
-    .setPosition(x+20, y+40)
+    .setPosition(x+30, y+40)
     .setSize(9, 20)
     .setColorLabel(buttonColorText)
     .setColorBackground(buttonColor).getCaptionLabel().align(ControlP5.CENTER, ControlP5.CENTER).setText("")
     ;
+
+  cp5.addButton("rfGain04")
+    .setPosition(x+40, y+40)
+    .setSize(9, 20)
+    .setColorLabel(buttonColorText)
+    .setColorBackground(buttonColor).getCaptionLabel().align(ControlP5.CENTER, ControlP5.CENTER).setText("")
+    ;
+
+  cp5.getController("rfGain00").moveTo(tabLabels[TAB_MEASURE]);
   cp5.getController("rfGain01").moveTo(tabLabels[TAB_MEASURE]);
   cp5.getController("rfGain02").moveTo(tabLabels[TAB_MEASURE]);
   cp5.getController("rfGain03").moveTo(tabLabels[TAB_MEASURE]);
+  cp5.getController("rfGain04").moveTo(tabLabels[TAB_MEASURE]);
 
   // --------------------------------------------------------------------
   //
@@ -688,7 +705,7 @@ void setupControls() {
 
   cp5.addButton("autoScale")
     //.setValue(0)
-    .setPosition(60, y)
+    .setPosition(70, y)
     .setSize(55, 20)
     .setColorLabel(buttonColorText)
     .setColorBackground(buttonColor).getCaptionLabel().align(ControlP5.CENTER, ControlP5.CENTER).setText("Auto scale")
@@ -697,7 +714,7 @@ void setupControls() {
 
   cp5.addButton("resetScale")
     //.setValue(0)
-    .setPosition(120, y)
+    .setPosition(130, y)
     .setSize(60, 20)
     .setColorBackground(buttonColor)
     .setColorLabel(buttonColorText)
@@ -1070,6 +1087,11 @@ public void rfGain(int gainValue) {
   spektrumReader.setGain(gainValue);
 }
 
+public void rfGain00(int gainValue) {
+  rfGain( gains[0] );
+  cp5.get(Knob.class, "rfGain").setValue(gains[0]);
+}
+
 public void rfGain01(int gainValue) {
   //println( (int) (( gains[0] + ( gains[gains.length-1] - gains[0]) / 3 )  ) );
   int tpmInt = (int) (( gains[0] + ( gains[gains.length-1] - gains[0]) * 1 / 3 )  ) ;
@@ -1087,6 +1109,11 @@ public void rfGain03(int gainValue) {
   int tpmInt = (int) (( gains[0] + ( gains[gains.length-1] - gains[0]) *2 / 3 )  ) ;
   rfGain( tpmInt );
   cp5.get(Knob.class, "rfGain").setValue(tpmInt);
+}
+
+public void rfGain04(int gainValue) {
+  rfGain( gains[gains.length-1] );
+  cp5.get(Knob.class, "rfGain").setValue(gains[gains.length-1]);
 }
 
 // IF settings UI
