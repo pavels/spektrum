@@ -276,7 +276,7 @@ void setupStartControls() {
     .setBarHeight(20)
     .setItemHeight(20)
     .setPosition(x, y)
-    .setSize(width, 80);
+    .setSize(width, 20 + (devices.length * 30));
 
   deviceDropdown.getCaptionLabel().align(ControlP5.LEFT, ControlP5.TOP_OUTSIDE).setText("Select device");
 
