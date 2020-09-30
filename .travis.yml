@@ -30,7 +30,7 @@ before_install:
         sudo apt-get update
         sudo apt-get -y install libusb-1.0-0-dev maven wget unzip
         cd /opt
-        wget https://download.processing.org/processing-3.5.4-linux64.tgz
+        wget --no-check-certificate https://download.processing.org/processing-3.5.4-linux64.tgz
         tar -xf processing-3.5.4-linux64.tgz
         cd "$TRAVIS_BUILD_DIR"
         ;;
