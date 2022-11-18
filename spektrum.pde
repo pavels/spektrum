@@ -321,7 +321,7 @@ void setupControls() {
     .setText("RECEIVER RANGE:")
     .setPosition(x-13, y)
     .setColorValue(0xffffff00)
-    .setFont(createFont("ARIAL", 10))
+    .setFont(createFont("ARIAL", 14))
     ;
   y+=35;
 
