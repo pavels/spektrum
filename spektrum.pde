@@ -321,7 +321,7 @@ void setupControls() {
     .setText("RECEIVER RANGE:")
     .setPosition(x-13, y)
     .setColorValue(0xffffff00)
-    .setFont(createFont("ARIAL", 10))
+    .setFont(createFont("ARIAL", 14))
     ;
   y+=35;
 
@@ -398,7 +398,7 @@ void setupControls() {
     .setText("UP/DOWN CONVERTER:")
     .setPosition(x-13, y)
     .setColorValue(0xffffff00)
-    .setFont(createFont("ARIAL", 10))
+    .setFont(createFont("ARIAL", 14))
     ;
 
   y+=30;
@@ -437,7 +437,7 @@ void setupControls() {
     .setText("VARIOUS OPTIONS:")
     .setPosition(x-13, y)
     .setColorValue(0xffffff00)
-    .setFont(createFont("ARIAL", 10))
+    .setFont(createFont("ARIAL", 14))
     ;
 
   y+=35;
@@ -508,7 +508,7 @@ void setupControls() {
     .setText("CONFIGURATION PRESETS:")
     .setPosition(x-13, y)
     .setColorValue(0xffffff00)
-    .setFont(createFont("ARIAL", 10))
+    .setFont(createFont("ARIAL", 14))
     ;
 
   // Quick n dirty. Load from file and populate list.
@@ -605,7 +605,7 @@ void setupControls() {
     .setText("VERTICAL SCALE & RF GAIN:")
     .setPosition(x-13, y)
     .setColorValue(0xffffff00)
-    .setFont(createFont("ARIAL", 10))
+    .setFont(createFont("ARIAL", 14))
     ;
   tmpLabel.moveTo(tabLabels[TAB_MEASURE]);
 
@@ -732,7 +732,7 @@ void setupControls() {
     .setText("VIDEO AVERAGING :")
     .setPosition(x-13, y)
     .setColorValue(0xffffff00)
-    .setFont(createFont("ARIAL", 10))
+    .setFont(createFont("ARIAL", 14))
     ;
   tmpLabel.moveTo(tabLabels[TAB_MEASURE]);
 
@@ -773,7 +773,7 @@ void setupControls() {
     .setText("REFERENCE GRAPH:")
     .setPosition(x-13, y)
     .setColorValue(0xffffff00)
-    .setFont(createFont("ARIAL", 10))
+    .setFont(createFont("ARIAL", 14))
     ;
   tmpLabel.moveTo(tabLabels[TAB_MEASURE]);
 
@@ -815,7 +815,7 @@ void setupControls() {
     .setText("MIN, MAX, MEDIAN HOLD :")
     .setPosition(x-13, y)
     .setColorValue(0xffffff00)
-    .setFont(createFont("ARIAL", 10))
+    .setFont(createFont("ARIAL", 14))
     ;
   tmpLabel.moveTo(tabLabels[TAB_MEASURE]);
 
@@ -863,7 +863,7 @@ void setupControls() {
     .setText("PRESET / RETURN TO PREVIOUS:")
     .setPosition(x-13, y)
     .setColorValue(0xffffff00)
-    .setFont(createFont("ARIAL", 10))
+    .setFont(createFont("ARIAL", 14))
     ;
   tmpLabel.moveTo(tabLabels[TAB_MEASURE]);
 
